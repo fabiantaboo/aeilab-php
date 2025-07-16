@@ -81,20 +81,47 @@ class AnthropicAPI {
                 'content' => "Start a conversation about: " . $topic
             ];
         } else {
-            // Add conversation history
-            foreach ($conversationHistory as $index => $historyItem) {
-                $role = ($index % 2 === 0) ? 'user' : 'assistant';
+            // Process conversation history to ensure proper alternating pattern
+            // and that the last message is always from 'user' role
+            
+            // First, create the message array from history
+            $historyMessages = [];
+            foreach ($conversationHistory as $historyItem) {
+                $historyMessages[] = $historyItem['message'];
+            }
+            
+            // Determine if we need to flip roles to end with 'user'
+            $messageCount = count($historyMessages);
+            
+            // If we have an even number of messages, the pattern should be:
+            // user, assistant, user, assistant (last is assistant)
+            // If we have an odd number of messages, the pattern should be:
+            // user, assistant, user (last is user)
+            
+            // We want to ALWAYS end with user, so:
+            // - If messageCount is odd: start with user (normal pattern)
+            // - If messageCount is even: start with assistant (flipped pattern)
+            
+            $startWithUser = ($messageCount % 2 === 1);
+            
+            // Build the alternating message pattern
+            foreach ($historyMessages as $index => $message) {
+                if ($startWithUser) {
+                    $role = ($index % 2 === 0) ? 'user' : 'assistant';
+                } else {
+                    $role = ($index % 2 === 0) ? 'assistant' : 'user';
+                }
+                
                 $messages[] = [
                     'role' => $role,
-                    'content' => $historyItem['message']
+                    'content' => $message
                 ];
             }
             
-            // Add a prompt for the next turn
-            $messages[] = [
-                'role' => 'user',
-                'content' => "Continue the conversation naturally as the " . $characterType . " character."
-            ];
+            // Verify the last message is from 'user' (safety check)
+            if (count($messages) > 0 && $messages[count($messages) - 1]['role'] !== 'user') {
+                error_log("Warning: Dialog history doesn't end with user message, this may cause issues");
+            }
         }
         
         $response = $this->generateResponse($systemPrompt, $messages);

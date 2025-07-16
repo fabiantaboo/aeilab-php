@@ -110,22 +110,51 @@ class Setup {
         
         $pdo->exec($userTableSQL);
         
-        // Create datasets table for future use
-        $datasetsTableSQL = "
-            CREATE TABLE IF NOT EXISTS datasets (
+        // Create dialogs table
+        $dialogsTableSQL = "
+            CREATE TABLE IF NOT EXISTS dialogs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
                 description TEXT,
+                aei_character_id INT NOT NULL,
+                user_character_id INT NOT NULL,
+                topic VARCHAR(200) NOT NULL,
+                turns_per_topic INT DEFAULT 5,
+                status ENUM('draft', 'in_progress', 'completed') DEFAULT 'draft',
                 created_by INT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 is_active BOOLEAN DEFAULT TRUE,
+                FOREIGN KEY (aei_character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_character_id) REFERENCES characters(id) ON DELETE CASCADE,
                 FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-                INDEX idx_created_by (created_by)
+                INDEX idx_aei_character (aei_character_id),
+                INDEX idx_user_character (user_character_id),
+                INDEX idx_created_by (created_by),
+                INDEX idx_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET={$this->charset} COLLATE={$this->charset}_unicode_ci
         ";
         
-        $pdo->exec($datasetsTableSQL);
+        $pdo->exec($dialogsTableSQL);
+        
+        // Create dialog messages table for storing conversation
+        $dialogMessagesTableSQL = "
+            CREATE TABLE IF NOT EXISTS dialog_messages (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                dialog_id INT NOT NULL,
+                character_id INT NOT NULL,
+                message TEXT NOT NULL,
+                turn_number INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (dialog_id) REFERENCES dialogs(id) ON DELETE CASCADE,
+                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                INDEX idx_dialog (dialog_id),
+                INDEX idx_character (character_id),
+                INDEX idx_turn (turn_number)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$this->charset} COLLATE={$this->charset}_unicode_ci
+        ";
+        
+        $pdo->exec($dialogMessagesTableSQL);
         
         // Create activity log table
         $activityLogSQL = "
@@ -215,7 +244,7 @@ class Setup {
             $pdo = new PDO($dsn, $this->username, $this->password);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
-            $requiredTables = ['users', 'characters', 'datasets', 'activity_log'];
+            $requiredTables = ['users', 'characters', 'dialogs', 'dialog_messages', 'activity_log'];
             
             foreach ($requiredTables as $table) {
                 $stmt = $pdo->prepare("SHOW TABLES LIKE ?");

@@ -176,7 +176,8 @@ $status = $setup->getSetupStatus();
                     <ul class="list-unstyled">
                         <li><i class="fas fa-users"></i> <strong>users</strong> - User accounts and authentication</li>
                         <li><i class="fas fa-user-friends"></i> <strong>characters</strong> - AEI and User characters with system prompts</li>
-                        <li><i class="fas fa-database"></i> <strong>datasets</strong> - AEI dataset management</li>
+                        <li><i class="fas fa-comments"></i> <strong>dialogs</strong> - Dialog configurations between characters</li>
+                        <li><i class="fas fa-message"></i> <strong>dialog_messages</strong> - Conversation messages storage</li>
                         <li><i class="fas fa-history"></i> <strong>activity_log</strong> - User activity tracking</li>
                     </ul>
                 </div>

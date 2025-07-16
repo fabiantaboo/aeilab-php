@@ -7,6 +7,10 @@ requireAuth();
 // Get current user data
 $currentUser = $user->getCurrentUser();
 
+// Get statistics
+$characterStats = $character->getStats();
+$dialogStats = $dialog->getStats();
+
 includeHeader('Dashboard - AEI Lab');
 
 // Show login success message
@@ -27,6 +31,37 @@ if (isset($_GET['login']) && $_GET['login'] === 'success') {
                     This is the internal development tool for generating datasets for our 
                     Artificial Emotional Intelligence (AEI) system.
                 </p>
+                
+                <!-- Quick Stats -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h4><?php echo $characterStats['total']; ?></h4>
+                                <p class="mb-0">Characters</p>
+                                <small>(<?php echo $characterStats['aei']; ?> AEI, <?php echo $characterStats['user']; ?> User)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h4><?php echo $dialogStats['total']; ?></h4>
+                                <p class="mb-0">Dialogs</p>
+                                <small><?php echo $dialogStats['completed']; ?> completed</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h4><?php echo $dialogStats['in_progress']; ?></h4>
+                                <p class="mb-0">In Progress</p>
+                                <small><?php echo $dialogStats['draft']; ?> drafts</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="row">
                     <div class="col-md-4">
@@ -49,11 +84,14 @@ if (isset($_GET['login']) && $_GET['login'] === 'success') {
                         <div class="card bg-light">
                             <div class="card-body">
                                 <h5 class="card-title">
-                                    <i class="fas fa-database"></i> Dataset Generation
+                                    <i class="fas fa-comments"></i> Dialogs
                                 </h5>
-                                <p class="card-text">Create and manage datasets for AEI training.</p>
-                                <a href="#" class="btn btn-primary btn-sm">
-                                    <i class="fas fa-plus"></i> Create Dataset
+                                <p class="card-text">Create and manage dialogs between AEI and User characters.</p>
+                                <a href="dialogs.php" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye"></i> View Dialogs
+                                </a>
+                                <a href="dialog-create.php" class="btn btn-success btn-sm">
+                                    <i class="fas fa-plus"></i> Create Dialog
                                 </a>
                             </div>
                         </div>
@@ -123,11 +161,14 @@ if (isset($_GET['login']) && $_GET['login'] === 'success') {
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="#" class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-folder"></i> My Datasets
+                    <a href="characters.php?my_characters=1" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-users"></i> My Characters
                     </a>
-                    <a href="#" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-cog"></i> Settings
+                    <a href="dialogs.php?my_dialogs=1" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-comments"></i> My Dialogs
+                    </a>
+                    <a href="dialog-create.php" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-plus"></i> Create Dialog
                     </a>
                     <?php if ($user->isAdmin()): ?>
                     <a href="admin.php" class="btn btn-outline-danger btn-sm">

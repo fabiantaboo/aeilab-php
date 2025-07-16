@@ -11,7 +11,7 @@ define('DB_CHARSET', 'utf8mb4');
 // Application Configuration
 define('APP_NAME', 'AEI Lab Internal Tool');
 define('APP_VERSION', '1.0.0');
-define('BASE_URL', 'http://localhost/aeilab-php/');
+define('BASE_URL', 'https://aeilab.tabootwin.com');
 
 // Security Configuration
 define('SESSION_LIFETIME', 3600); // 1 hour

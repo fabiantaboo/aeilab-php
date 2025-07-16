@@ -158,15 +158,19 @@ class Setup {
         $pdo->exec($dialogMessagesTableSQL);
         
         // Add anthropic_request_json column to existing dialog_messages table if it doesn't exist
-        $addColumnSQL = "
-            ALTER TABLE dialog_messages 
-            ADD COLUMN IF NOT EXISTS anthropic_request_json TEXT NULL
-        ";
-        
         try {
-            $pdo->exec($addColumnSQL);
+            // Check if column already exists
+            $checkColumnSQL = "SHOW COLUMNS FROM dialog_messages LIKE 'anthropic_request_json'";
+            $stmt = $pdo->query($checkColumnSQL);
+            $columnExists = $stmt->rowCount() > 0;
+            
+            if (!$columnExists) {
+                $addColumnSQL = "ALTER TABLE dialog_messages ADD COLUMN anthropic_request_json TEXT NULL AFTER turn_number";
+                $pdo->exec($addColumnSQL);
+            }
         } catch (Exception $e) {
-            // Column might already exist, ignore error
+            // Column might already exist or other error, continue
+            error_log("Warning: Could not add anthropic_request_json column: " . $e->getMessage());
         }
         
         // Create dialog jobs table for background processing

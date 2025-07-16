@@ -173,13 +173,27 @@ class Dialog {
      * @return bool
      */
     public function addMessage($dialogId, $characterId, $message, $turnNumber, $anthropicRequestJson = null) {
-        $sql = "INSERT INTO dialog_messages (dialog_id, character_id, message, turn_number, anthropic_request_json) VALUES (?, ?, ?, ?, ?)";
-        
         try {
-            $this->db->query($sql, [$dialogId, $characterId, $message, $turnNumber, $anthropicRequestJson]);
+            // Check if anthropic_request_json column exists
+            $columnCheck = $this->db->query("SHOW COLUMNS FROM dialog_messages LIKE 'anthropic_request_json'");
+            $columnExists = $columnCheck->rowCount() > 0;
+            
+            if ($columnExists) {
+                // Use new schema with JSON column
+                $sql = "INSERT INTO dialog_messages (dialog_id, character_id, message, turn_number, anthropic_request_json) VALUES (?, ?, ?, ?, ?)";
+                $params = [$dialogId, $characterId, $message, $turnNumber, $anthropicRequestJson];
+            } else {
+                // Fall back to old schema without JSON column
+                $sql = "INSERT INTO dialog_messages (dialog_id, character_id, message, turn_number) VALUES (?, ?, ?, ?)";
+                $params = [$dialogId, $characterId, $message, $turnNumber];
+            }
+            
+            $this->db->query($sql, $params);
             return true;
         } catch (Exception $e) {
             error_log("Message addition failed: " . $e->getMessage());
+            error_log("SQL: " . ($sql ?? 'unknown'));
+            error_log("Params: " . json_encode($params ?? []));
             return false;
         }
     }

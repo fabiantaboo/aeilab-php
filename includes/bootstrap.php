@@ -17,7 +17,14 @@ $setup = new Setup();
 
 // Auto-initialize database if needed
 if (!$setup->isDatabaseInitialized()) {
-    $setup->initialize();
+    $setupResult = $setup->initialize();
+    if (!$setupResult) {
+        // If setup fails, redirect to setup page
+        if (basename($_SERVER['PHP_SELF']) !== 'setup.php') {
+            header('Location: setup.php');
+            exit;
+        }
+    }
 }
 
 // Initialize database connection

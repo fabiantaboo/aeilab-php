@@ -27,7 +27,7 @@ class Setup {
             // First, connect without database to create it
             $this->createDatabase();
             
-            // Then create tables
+            // Then create tables (this will create all tables if they don't exist)
             $this->createTables();
             
             // Insert default admin user if not exists
@@ -36,6 +36,34 @@ class Setup {
             return true;
         } catch (Exception $e) {
             error_log("Setup Error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Create specific table if it doesn't exist
+     * @param string $tableName
+     * @return bool
+     */
+    public function createSpecificTable($tableName) {
+        try {
+            $dsn = "mysql:host={$this->host};dbname={$this->db_name};charset={$this->charset}";
+            $pdo = new PDO($dsn, $this->username, $this->password);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // Check if table exists
+            $stmt = $pdo->prepare("SHOW TABLES LIKE ?");
+            $stmt->execute([$tableName]);
+            
+            if ($stmt->fetchColumn() === false) {
+                // Table doesn't exist, create it
+                $this->createTables(); // This will create all missing tables
+                return true;
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("Setup Error creating table {$tableName}: " . $e->getMessage());
             return false;
         }
     }
@@ -182,16 +210,22 @@ class Setup {
                 return false;
             }
             
-            // Check if users table exists
+            // Check if all required tables exist
             $dsn = "mysql:host={$this->host};dbname={$this->db_name};charset={$this->charset}";
             $pdo = new PDO($dsn, $this->username, $this->password);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
-            $stmt = $pdo->prepare("SHOW TABLES LIKE 'users'");
-            $stmt->execute();
-            $tableExists = $stmt->fetchColumn() !== false;
+            $requiredTables = ['users', 'characters', 'datasets', 'activity_log'];
             
-            return $tableExists;
+            foreach ($requiredTables as $table) {
+                $stmt = $pdo->prepare("SHOW TABLES LIKE ?");
+                $stmt->execute([$table]);
+                if ($stmt->fetchColumn() === false) {
+                    return false;
+                }
+            }
+            
+            return true;
         } catch (Exception $e) {
             return false;
         }

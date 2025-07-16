@@ -52,6 +52,48 @@ class Database {
     }
     
     /**
+     * Check if table exists and create if missing
+     * @param string $tableName
+     * @return bool
+     */
+    private function ensureTableExists($tableName) {
+        try {
+            $stmt = $this->getConnection()->prepare("SHOW TABLES LIKE ?");
+            $stmt->execute([$tableName]);
+            
+            if ($stmt->fetchColumn() === false) {
+                // Table doesn't exist, run setup
+                require_once __DIR__ . '/Setup.php';
+                $setup = new Setup();
+                $setup->initialize();
+                return true;
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Execute a prepared statement with table existence check
+     * @param string $query
+     * @param array $params
+     * @return PDOStatement
+     */
+    public function query($query, $params = []) {
+        // Check if query involves a table and ensure it exists
+        if (preg_match('/(?:FROM|INTO|UPDATE|JOIN)\s+(\w+)/i', $query, $matches)) {
+            $tableName = $matches[1];
+            $this->ensureTableExists($tableName);
+        }
+        
+        $stmt = $this->getConnection()->prepare($query);
+        $stmt->execute($params);
+        return $stmt;
+    }
+    
+    /**
      * Execute a prepared statement
      * @param string $query
      * @param array $params

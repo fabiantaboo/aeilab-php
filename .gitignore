@@ -3,6 +3,10 @@
 # Configuration files (contain sensitive data)
 config/config.php
 
+# Web server configuration files
+.htaccess
+web.config
+
 # Log files
 *.log
 logs/

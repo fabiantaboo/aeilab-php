@@ -1,24 +1,25 @@
 <?php
-// AEI Lab Internal Tool Configuration
+// AEI Lab Internal Tool Configuration - EXAMPLE
+// Copy this file to config.php and adjust the values
 
 // Database Configuration
-define('DB_HOST', '5.161.216.58');
-define('DB_NAME', 'aeilab-php_');
-define('DB_USER', 'aeilab-php');
-define('DB_PASS', 'A~UvMzb*2b0e4wbs');
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'aeilab_internal');
+define('DB_USER', 'your_db_user');
+define('DB_PASS', 'your_db_password');
 define('DB_CHARSET', 'utf8mb4');
 
 // Application Configuration
 define('APP_NAME', 'AEI Lab Internal Tool');
 define('APP_VERSION', '1.0.0');
-define('BASE_URL', 'https://aeilab.tabootwin.com');
+define('BASE_URL', 'http://localhost/aeilab-php/'); // Adjust to your domain/path
 
 // Security Configuration
 define('SESSION_LIFETIME', 3600); // 1 hour
 define('CSRF_TOKEN_LENGTH', 32);
 define('PASSWORD_MIN_LENGTH', 6);
 
-// Error Reporting (for development)
+// Error Reporting (set to 0 for production)
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 

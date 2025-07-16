@@ -9,50 +9,47 @@ RewriteEngine On
 
 # Deny access to sensitive files
 <Files ~ "^\.">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </Files>
 
 # Protect config directory
 <Directory "config">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </Directory>
 
 # Protect classes directory from direct access
 <Directory "classes">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </Directory>
 
 # Protect includes directory from direct access
 <Directory "includes">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </Directory>
 
 # Protect database directory from direct access
 <Directory "database">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </Directory>
 
 # Protect log files
 <Files "*.log">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </Files>
 
 # Protect backup files
 <Files "*.bak">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </Files>
 
 # Protect configuration files
 <Files "*.conf">
-    Order allow,deny
-    Deny from all
+    Require all denied
+</Files>
+
+# Protect PHP configuration files
+<Files "config.php">
+    Require all denied
 </Files>
 
 # Set security headers

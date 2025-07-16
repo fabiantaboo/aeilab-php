@@ -12,13 +12,19 @@
 ### 1. Dateien hochladen
 Laden Sie alle Projektdateien in Ihr Webserver-Verzeichnis hoch.
 
-### 2. Datenbankverbindung konfigurieren
-Bearbeiten Sie die Datei `config/config.php`:
+### 2. Konfiguration erstellen
+Kopieren Sie `config/config.example.php` zu `config/config.php` und passen Sie die Werte an:
+```bash
+cp config/config.example.php config/config.php
+```
+
+Bearbeiten Sie dann `config/config.php`:
 ```php
 define('DB_HOST', 'localhost');     // Ihr Datenbank-Host
 define('DB_NAME', 'aeilab_internal'); // Datenbankname
 define('DB_USER', 'root');          // Datenbank-Benutzer
 define('DB_PASS', '');              // Datenbank-Passwort
+define('BASE_URL', 'http://yourdomain.com/aeilab-php/'); // Ihre Domain
 ```
 
 ### 3. Automatisches Setup
@@ -48,12 +54,25 @@ aeilab-php/
 └── .htaccess          # Apache-Konfiguration
 ```
 
+## Git-Setup (für Entwickler)
+
+Die `config.php` wird aus Sicherheitsgründen nicht in das Repository eingecheckt. Falls Sie das Repository aktualisieren:
+
+```bash
+# Entferne config.php aus Git (einmalig)
+git rm --cached config/config.php
+git commit -m "Remove config.php from repository"
+
+# config.php wird ab sofort durch .gitignore ignoriert
+```
+
 ## Sicherheitshinweise
 
 1. **Passwort ändern**: Ändern Sie das Standard-Admin-Passwort nach der Installation
 2. **Datenbankzugriff**: Verwenden Sie einen dedizierten Datenbankbenutzer mit minimalen Rechten
 3. **HTTPS**: Aktivieren Sie HTTPS in der Produktion
 4. **Backup**: Erstellen Sie regelmäßige Backups der Datenbank
+5. **Konfiguration**: Die `config.php` niemals in das Repository committen
 
 ## Troubleshooting
 

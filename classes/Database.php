@@ -94,18 +94,6 @@ class Database {
     }
     
     /**
-     * Execute a prepared statement
-     * @param string $query
-     * @param array $params
-     * @return PDOStatement
-     */
-    public function query($query, $params = []) {
-        $stmt = $this->getConnection()->prepare($query);
-        $stmt->execute($params);
-        return $stmt;
-    }
-    
-    /**
      * Get single row
      * @param string $query
      * @param array $params

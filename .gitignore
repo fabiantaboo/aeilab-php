@@ -38,6 +38,11 @@ temp/
 tmp/
 cache/
 
+# Test files
+test-*.php
+config-fix.php
+diagnostic.php
+
 # User uploads
 uploads/
 files/

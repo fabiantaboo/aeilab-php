@@ -23,8 +23,7 @@ define('PASSWORD_MIN_LENGTH', 6);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Session Configuration
-session_start();
+// Session Configuration - MUST be before session_start()
 session_set_cookie_params([
     'lifetime' => SESSION_LIFETIME,
     'path' => '/',
@@ -33,6 +32,7 @@ session_set_cookie_params([
     'httponly' => true,
     'samesite' => 'Strict'
 ]);
+session_start();
 
 // Timezone
 date_default_timezone_set('Europe/Berlin');

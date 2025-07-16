@@ -145,6 +145,7 @@ class Setup {
                 character_id INT NOT NULL,
                 message TEXT NOT NULL,
                 turn_number INT NOT NULL,
+                anthropic_request_json TEXT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (dialog_id) REFERENCES dialogs(id) ON DELETE CASCADE,
                 FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
@@ -155,6 +156,18 @@ class Setup {
         ";
         
         $pdo->exec($dialogMessagesTableSQL);
+        
+        // Add anthropic_request_json column to existing dialog_messages table if it doesn't exist
+        $addColumnSQL = "
+            ALTER TABLE dialog_messages 
+            ADD COLUMN IF NOT EXISTS anthropic_request_json TEXT NULL
+        ";
+        
+        try {
+            $pdo->exec($addColumnSQL);
+        } catch (Exception $e) {
+            // Column might already exist, ignore error
+        }
         
         // Create dialog jobs table for background processing
         $dialogJobsTableSQL = "

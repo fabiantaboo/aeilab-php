@@ -97,7 +97,14 @@ class AnthropicAPI {
             ];
         }
         
-        return $this->generateResponse($systemPrompt, $messages);
+        $response = $this->generateResponse($systemPrompt, $messages);
+        
+        // Add the actual messages sent to Anthropic for debugging
+        if ($response['success']) {
+            $response['anthropic_messages'] = $messages;
+        }
+        
+        return $response;
     }
     
     /**

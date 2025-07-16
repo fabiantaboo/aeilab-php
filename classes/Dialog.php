@@ -172,11 +172,11 @@ class Dialog {
      * @param int $turnNumber
      * @return bool
      */
-    public function addMessage($dialogId, $characterId, $message, $turnNumber) {
-        $sql = "INSERT INTO dialog_messages (dialog_id, character_id, message, turn_number) VALUES (?, ?, ?, ?)";
+    public function addMessage($dialogId, $characterId, $message, $turnNumber, $anthropicRequestJson = null) {
+        $sql = "INSERT INTO dialog_messages (dialog_id, character_id, message, turn_number, anthropic_request_json) VALUES (?, ?, ?, ?, ?)";
         
         try {
-            $this->db->query($sql, [$dialogId, $characterId, $message, $turnNumber]);
+            $this->db->query($sql, [$dialogId, $characterId, $message, $turnNumber, $anthropicRequestJson]);
             return true;
         } catch (Exception $e) {
             error_log("Message addition failed: " . $e->getMessage());

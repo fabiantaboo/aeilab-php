@@ -158,7 +158,18 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                 
                 <!-- Dialog Messages -->
                 <div class="mb-4">
-                    <h6>Dialog Messages</h6>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6>Dialog Messages</h6>
+                        <?php if (!empty($messages)): ?>
+                            <div class="btn-group btn-group-sm">
+                                <a href="download_anthropic_request.php?dialog_id=<?php echo $dialogId; ?>&bulk=1" 
+                                   class="btn btn-outline-primary btn-sm" 
+                                   title="Download all Anthropic requests as ZIP">
+                                    <i class="fas fa-download"></i> Download All JSON
+                                </a>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                     <?php if (empty($messages)): ?>
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i> No messages yet. 
@@ -167,7 +178,7 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                     <?php else: ?>
                         <div class="conversation-flow">
                             <?php foreach ($messages as $message): ?>
-                                <div class="message mb-3">
+                                <div class="message mb-3 p-3 rounded <?php echo $message['character_type'] === 'AEI' ? 'bg-light border-start border-success border-4' : 'bg-white border-start border-info border-4'; ?>">
                                     <div class="d-flex align-items-start">
                                         <div class="me-3">
                                             <?php if ($message['character_type'] === 'AEI'): ?>
@@ -177,11 +188,57 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                                             <?php endif; ?>
                                         </div>
                                         <div class="flex-grow-1">
-                                            <div class="d-flex justify-content-between">
-                                                <strong><?php echo htmlspecialchars($message['character_name']); ?></strong>
-                                                <small class="text-muted">Turn <?php echo $message['turn_number']; ?></small>
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <strong><?php echo htmlspecialchars($message['character_name']); ?></strong>
+                                                    <small class="text-muted ms-2">Turn <?php echo $message['turn_number']; ?></small>
+                                                    <small class="text-muted ms-2"><?php echo date('H:i:s', strtotime($message['created_at'])); ?></small>
+                                                </div>
+                                                <div class="btn-group btn-group-sm">
+                                                    <?php if ($message['anthropic_request_json']): ?>
+                                                        <a href="download_anthropic_request.php?message_id=<?php echo $message['id']; ?>" 
+                                                           class="btn btn-outline-primary btn-sm" 
+                                                           title="Download Anthropic Request JSON">
+                                                            <i class="fas fa-download"></i> JSON
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <span class="btn btn-outline-secondary btn-sm disabled" 
+                                                              title="No Anthropic request data available">
+                                                            <i class="fas fa-download"></i> JSON
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <button class="btn btn-outline-info btn-sm" 
+                                                            onclick="showMessageDetails(<?php echo $message['id']; ?>)" 
+                                                            title="Show message details">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                             <p class="mt-2"><?php echo nl2br(htmlspecialchars($message['message'])); ?></p>
+                                            
+                                            <!-- Message Details (hidden by default) -->
+                                            <div id="message-details-<?php echo $message['id']; ?>" class="collapse mt-2">
+                                                <div class="card bg-light">
+                                                    <div class="card-body small">
+                                                        <div class="row">
+                                                            <div class="col-md-6">
+                                                                <strong>Character:</strong> <?php echo htmlspecialchars($message['character_name']); ?><br>
+                                                                <strong>Type:</strong> <?php echo htmlspecialchars($message['character_type']); ?><br>
+                                                                <strong>Turn:</strong> <?php echo $message['turn_number']; ?><br>
+                                                                <strong>Created:</strong> <?php echo date('Y-m-d H:i:s', strtotime($message['created_at'])); ?><br>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <strong>Message Length:</strong> <?php echo strlen($message['message']); ?> chars<br>
+                                                                <strong>Word Count:</strong> <?php echo str_word_count($message['message']); ?> words<br>
+                                                                <strong>Has API Data:</strong> <?php echo $message['anthropic_request_json'] ? 'Yes' : 'No'; ?><br>
+                                                                <?php if ($message['anthropic_request_json']): ?>
+                                                                    <strong>API Data Size:</strong> <?php echo round(strlen($message['anthropic_request_json']) / 1024, 2); ?> KB<br>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -276,5 +333,27 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
         </div>
     </div>
 </div>
+
+<script>
+function showMessageDetails(messageId) {
+    const detailsDiv = document.getElementById('message-details-' + messageId);
+    const isVisible = detailsDiv.classList.contains('show');
+    
+    if (isVisible) {
+        detailsDiv.classList.remove('show');
+    } else {
+        detailsDiv.classList.add('show');
+    }
+}
+
+// Auto-refresh dialog status every 30 seconds
+setInterval(function() {
+    // Check if there's an active job
+    const jobStatusElement = document.querySelector('.badge.bg-warning, .badge.bg-info');
+    if (jobStatusElement) {
+        location.reload();
+    }
+}, 30000);
+</script>
 
 <?php includeFooter(); ?> 

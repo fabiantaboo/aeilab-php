@@ -96,10 +96,11 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
         $conversationHistory = $dialog->getMessages($dialogId);
         
         // Generate response using Anthropic API
+        $formattedHistory = $anthropicAPI->formatConversationHistory($conversationHistory);
         $response = $anthropicAPI->generateDialogTurn(
             $characterData['system_prompt'],
             $dialogData['topic'],
-            $anthropicAPI->formatConversationHistory($conversationHistory),
+            $formattedHistory,
             $nextCharacterType
         );
         
@@ -107,13 +108,34 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
             throw new Exception("API Error: " . $response['error']);
         }
         
-        // Save the generated message
+        // Prepare the full request data for storage
+        $fullRequestData = [
+            'dialog_id' => $dialogId,
+            'character_id' => $characterId,
+            'character_name' => $characterData['name'],
+            'character_type' => $nextCharacterType,
+            'system_prompt' => $characterData['system_prompt'],
+            'topic' => $dialogData['topic'],
+            'conversation_history' => $formattedHistory,
+            'turn_number' => $job['current_turn'] + 1,
+            'anthropic_request' => [
+                'model' => $anthropicAPI->getModel(),
+                'system' => $characterData['system_prompt'] . "\n\nYou are participating in a dialog about: " . $dialogData['topic'] . "\nCharacter type: " . $nextCharacterType . "\nRespond naturally and stay in character. Keep responses conversational and engaging.\nThis is part of a training dialog, so make it realistic and helpful.",
+                'messages' => $response['anthropic_messages'] ?? [],
+                'max_tokens' => defined('ANTHROPIC_MAX_TOKENS') ? ANTHROPIC_MAX_TOKENS : 1000
+            ],
+            'anthropic_response' => $response,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+        
+        // Save the generated message with request data
         $turnNumber = $job['current_turn'] + 1;
         $messageAdded = $dialog->addMessage(
             $dialogId,
             $characterId,
             $response['message'],
-            $turnNumber
+            $turnNumber,
+            json_encode($fullRequestData, JSON_PRETTY_PRINT)
         );
         
         if (!$messageAdded) {

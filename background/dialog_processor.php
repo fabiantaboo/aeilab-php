@@ -95,18 +95,43 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
         // Get conversation history
         $conversationHistory = $dialog->getMessages($dialogId);
         
+        // Get chat partner information
+        $partnerCharacterType = ($nextCharacterType === 'AEI') ? 'User' : 'AEI';
+        $partnerCharacterId = ($nextCharacterType === 'AEI') ? $dialogData['user_character_id'] : $dialogData['aei_character_id'];
+        $partnerCharacterData = $character->getById($partnerCharacterId);
+        
         // Generate response using Anthropic API
         $formattedHistory = $anthropicAPI->formatConversationHistory($conversationHistory);
         $response = $anthropicAPI->generateDialogTurn(
             $characterData['system_prompt'],
             $dialogData['topic'],
             $formattedHistory,
-            $nextCharacterType
+            $nextCharacterType,
+            $characterData['name'],
+            $partnerCharacterData ? $partnerCharacterData['name'] : null,
+            $partnerCharacterType
         );
         
         if (!$response['success']) {
             throw new Exception("API Error: " . $response['error']);
         }
+        
+        // Build the actual system prompt that was used
+        $actualSystemPrompt = $characterData['system_prompt'] . "\n\n";
+        $actualSystemPrompt .= "You are participating in a dialog about: " . $dialogData['topic'] . "\n";
+        
+        if ($characterData['name']) {
+            $actualSystemPrompt .= "You are " . $characterData['name'] . " (" . $nextCharacterType . " character).\n";
+        } else {
+            $actualSystemPrompt .= "You are a " . $nextCharacterType . " character.\n";
+        }
+        
+        if ($partnerCharacterData && $partnerCharacterData['name']) {
+            $actualSystemPrompt .= "You are talking with " . $partnerCharacterData['name'] . " (" . $partnerCharacterType . " character).\n";
+        }
+        
+        $actualSystemPrompt .= "Respond naturally and stay in character. Keep responses conversational and engaging.\n";
+        $actualSystemPrompt .= "This is part of a training dialog, so make it realistic and helpful.";
         
         // Prepare the full request data for storage
         $fullRequestData = [
@@ -114,13 +139,15 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
             'character_id' => $characterId,
             'character_name' => $characterData['name'],
             'character_type' => $nextCharacterType,
+            'partner_character_name' => $partnerCharacterData ? $partnerCharacterData['name'] : null,
+            'partner_character_type' => $partnerCharacterType,
             'system_prompt' => $characterData['system_prompt'],
             'topic' => $dialogData['topic'],
             'conversation_history' => $formattedHistory,
             'turn_number' => $job['current_turn'] + 1,
             'anthropic_request' => [
                 'model' => $anthropicAPI->getModel(),
-                'system' => $characterData['system_prompt'] . "\n\nYou are participating in a dialog about: " . $dialogData['topic'] . "\nCharacter type: " . $nextCharacterType . "\nRespond naturally and stay in character. Keep responses conversational and engaging.\nThis is part of a training dialog, so make it realistic and helpful.",
+                'system' => $actualSystemPrompt,
                 'messages' => $response['anthropic_messages'] ?? [],
                 'max_tokens' => defined('ANTHROPIC_MAX_TOKENS') ? ANTHROPIC_MAX_TOKENS : 1000
             ],

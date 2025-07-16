@@ -6,7 +6,7 @@
 class AnthropicAPI {
     private $apiKey;
     private $baseUrl = 'https://api.anthropic.com/v1/messages';
-    private $model = 'claude-3-sonnet-20240229';
+    private $model = 'claude-3-5-sonnet-20241022';
     
     public function __construct($apiKey = null) {
         // Try to get API key from environment or config
@@ -14,6 +14,11 @@ class AnthropicAPI {
         
         if (!$this->apiKey) {
             throw new Exception("Anthropic API key not provided");
+        }
+        
+        // Use configured model if available
+        if (defined('ANTHROPIC_MODEL')) {
+            $this->model = ANTHROPIC_MODEL;
         }
     }
     
@@ -61,13 +66,28 @@ class AnthropicAPI {
      * @param string $topic
      * @param array $conversationHistory
      * @param string $characterType
+     * @param string $characterName
+     * @param string $partnerName
+     * @param string $partnerType
      * @return array
      */
-    public function generateDialogTurn($characterSystemPrompt, $topic, $conversationHistory, $characterType) {
+    public function generateDialogTurn($characterSystemPrompt, $topic, $conversationHistory, $characterType, $characterName = null, $partnerName = null, $partnerType = null) {
         // Build system prompt with context
         $systemPrompt = $characterSystemPrompt . "\n\n";
         $systemPrompt .= "You are participating in a dialog about: " . $topic . "\n";
-        $systemPrompt .= "Character type: " . $characterType . "\n";
+        
+        // Add character identity information
+        if ($characterName) {
+            $systemPrompt .= "You are " . $characterName . " (" . $characterType . " character).\n";
+        } else {
+            $systemPrompt .= "You are a " . $characterType . " character.\n";
+        }
+        
+        // Add chat partner information
+        if ($partnerName && $partnerType) {
+            $systemPrompt .= "You are talking with " . $partnerName . " (" . $partnerType . " character).\n";
+        }
+        
         $systemPrompt .= "Respond naturally and stay in character. Keep responses conversational and engaging.\n";
         $systemPrompt .= "This is part of a training dialog, so make it realistic and helpful.";
         
@@ -208,6 +228,8 @@ class AnthropicAPI {
      */
     public function getAvailableModels() {
         return [
+            'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet (Latest)',
+            'claude-3-5-sonnet-20240620' => 'Claude 3.5 Sonnet (June)',
             'claude-3-sonnet-20240229' => 'Claude 3 Sonnet',
             'claude-3-haiku-20240307' => 'Claude 3 Haiku',
             'claude-3-opus-20240229' => 'Claude 3 Opus'

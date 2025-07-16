@@ -62,7 +62,10 @@ try {
         "You are a helpful customer service representative. Be polite and professional.",
         "Customer support for a software product",
         [],
-        "AEI"
+        "AEI",
+        "Support Agent",
+        "Customer",
+        "User"
     );
     
     if ($dialogResponse['success']) {

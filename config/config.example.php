@@ -21,7 +21,7 @@ define('PASSWORD_MIN_LENGTH', 6);
 
 // Anthropic API Configuration
 define('ANTHROPIC_API_KEY', 'your_anthropic_api_key_here');
-define('ANTHROPIC_MODEL', 'claude-3-sonnet-20240229');
+define('ANTHROPIC_MODEL', 'claude-3-5-sonnet-20241022');
 define('ANTHROPIC_MAX_TOKENS', 1000);
 
 // Error Reporting (set to 0 for production)

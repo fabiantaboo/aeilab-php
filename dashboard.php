@@ -29,7 +29,23 @@ if (isset($_GET['login']) && $_GET['login'] === 'success') {
                 </p>
                 
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-users"></i> Characters
+                                </h5>
+                                <p class="card-text">Create and manage AEI and User characters with system prompts.</p>
+                                <a href="characters.php" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye"></i> View Characters
+                                </a>
+                                <a href="character-create.php" class="btn btn-success btn-sm">
+                                    <i class="fas fa-plus"></i> Create Character
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
                         <div class="card bg-light">
                             <div class="card-body">
                                 <h5 class="card-title">
@@ -42,7 +58,7 @@ if (isset($_GET['login']) && $_GET['login'] === 'success') {
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="card bg-light">
                             <div class="card-body">
                                 <h5 class="card-title">

@@ -10,6 +10,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../classes/Setup.php';
 require_once __DIR__ . '/../classes/Database.php';
 require_once __DIR__ . '/../classes/User.php';
+require_once __DIR__ . '/../classes/Character.php';
 
 // Initialize setup
 $setup = new Setup();
@@ -24,6 +25,9 @@ $database = new Database();
 
 // Initialize user authentication
 $user = new User($database);
+
+// Initialize character management
+$character = new Character($database);
 
 // Check if user needs to be redirected
 function requireAuth() {
@@ -77,6 +81,12 @@ function includeHeader($title = 'AEI Lab Internal Tool') {
                     <i class="fas fa-brain"></i> AEI Lab
                 </a>
                 <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="dashboard.php">
+                        <i class="fas fa-home"></i> Dashboard
+                    </a>
+                    <a class="nav-link" href="characters.php">
+                        <i class="fas fa-users"></i> Characters
+                    </a>
                     <span class="navbar-text me-3">
                         Welcome, <?php echo htmlspecialchars($_SESSION['first_name']); ?>!
                     </span>

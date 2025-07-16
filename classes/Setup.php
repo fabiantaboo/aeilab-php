@@ -116,6 +116,27 @@ class Setup {
         ";
         
         $pdo->exec($activityLogSQL);
+        
+        // Create characters table
+        $charactersTableSQL = "
+            CREATE TABLE IF NOT EXISTS characters (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                type ENUM('AEI', 'User') NOT NULL,
+                system_prompt TEXT NOT NULL,
+                description TEXT,
+                created_by INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT TRUE,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_type (type),
+                INDEX idx_created_by (created_by),
+                INDEX idx_active (is_active)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$this->charset} COLLATE={$this->charset}_unicode_ci
+        ";
+        
+        $pdo->exec($charactersTableSQL);
     }
     
     /**

@@ -1,0 +1,182 @@
+<?php
+/**
+ * Background Dialog Processor
+ * Processes dialog jobs and generates turns using Anthropic API
+ * Run this script every 30 seconds via cron
+ */
+
+// Set up error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+
+// Include bootstrap
+require_once __DIR__ . '/../includes/bootstrap.php';
+
+// Log start of processing
+error_log("Dialog Processor: Starting processing cycle at " . date('Y-m-d H:i:s'));
+
+try {
+    // Initialize Anthropic API
+    $anthropicAPI = new AnthropicAPI(defined('ANTHROPIC_API_KEY') ? ANTHROPIC_API_KEY : null);
+    
+    // Get pending jobs
+    $pendingJobs = $dialogJob->getPendingJobs();
+    
+    if (empty($pendingJobs)) {
+        error_log("Dialog Processor: No pending jobs found");
+        exit(0);
+    }
+    
+    error_log("Dialog Processor: Found " . count($pendingJobs) . " pending jobs");
+    
+    // Process each job
+    foreach ($pendingJobs as $job) {
+        processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI);
+    }
+    
+    // Clean up old jobs
+    $cleanedJobs = $dialogJob->cleanupOldJobs();
+    if ($cleanedJobs > 0) {
+        error_log("Dialog Processor: Cleaned up $cleanedJobs old jobs");
+    }
+    
+    // Reset stuck jobs
+    $resetJobs = $dialogJob->resetStuckJobs();
+    if ($resetJobs > 0) {
+        error_log("Dialog Processor: Reset $resetJobs stuck jobs");
+    }
+    
+    error_log("Dialog Processor: Processing cycle completed successfully");
+    
+} catch (Exception $e) {
+    error_log("Dialog Processor Error: " . $e->getMessage());
+    exit(1);
+}
+
+/**
+ * Process a single dialog job
+ */
+function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) {
+    $jobId = $job['id'];
+    $dialogId = $job['dialog_id'];
+    
+    try {
+        error_log("Dialog Processor: Processing job $jobId for dialog $dialogId");
+        
+        // Mark job as in progress
+        $dialogJob->updateStatus($jobId, DialogJob::STATUS_IN_PROGRESS);
+        
+        // Check if job is complete
+        if ($job['current_turn'] >= $job['max_turns']) {
+            $dialogJob->complete($jobId);
+            error_log("Dialog Processor: Job $jobId completed (max turns reached)");
+            return;
+        }
+        
+        // Get dialog information
+        $dialogData = $dialog->getById($dialogId);
+        if (!$dialogData) {
+            throw new Exception("Dialog not found: $dialogId");
+        }
+        
+        // Determine which character should speak next
+        $nextCharacterType = $job['next_character_type'];
+        $characterId = ($nextCharacterType === 'AEI') ? 
+            $dialogData['aei_character_id'] : 
+            $dialogData['user_character_id'];
+        
+        // Get character information
+        $characterData = $character->getById($characterId);
+        if (!$characterData) {
+            throw new Exception("Character not found: $characterId");
+        }
+        
+        // Get conversation history
+        $conversationHistory = $dialog->getMessages($dialogId);
+        
+        // Generate response using Anthropic API
+        $response = $anthropicAPI->generateDialogTurn(
+            $characterData['system_prompt'],
+            $dialogData['topic'],
+            $anthropicAPI->formatConversationHistory($conversationHistory),
+            $nextCharacterType
+        );
+        
+        if (!$response['success']) {
+            throw new Exception("API Error: " . $response['error']);
+        }
+        
+        // Save the generated message
+        $turnNumber = $job['current_turn'] + 1;
+        $messageAdded = $dialog->addMessage(
+            $dialogId,
+            $characterId,
+            $response['message'],
+            $turnNumber
+        );
+        
+        if (!$messageAdded) {
+            throw new Exception("Failed to save message to database");
+        }
+        
+        // Log API usage
+        if (isset($response['usage'])) {
+            $anthropicAPI->logUsage($response['usage'], $dialogId);
+        }
+        
+        // Update job progress
+        $nextCharacterType = $dialogJob->getNextCharacterType($nextCharacterType);
+        $dialogJob->updateProgress($jobId, $turnNumber, $nextCharacterType);
+        
+        // Update dialog status to in_progress
+        $dialog->update($dialogId, array_merge($dialogData, ['status' => 'in_progress']));
+        
+        // Check if we've reached max turns
+        if ($turnNumber >= $job['max_turns']) {
+            $dialogJob->complete($jobId);
+            error_log("Dialog Processor: Job $jobId completed after $turnNumber turns");
+        } else {
+            // Mark as pending for next turn
+            $dialogJob->updateStatus($jobId, DialogJob::STATUS_PENDING);
+            error_log("Dialog Processor: Job $jobId turn $turnNumber completed, next: $nextCharacterType");
+        }
+        
+    } catch (Exception $e) {
+        error_log("Dialog Processor Error for job $jobId: " . $e->getMessage());
+        $dialogJob->fail($jobId, $e->getMessage());
+    }
+}
+
+/**
+ * Check if script is running in CLI mode
+ */
+function isCommandLine() {
+    return php_sapi_name() === 'cli';
+}
+
+/**
+ * Validate environment
+ */
+function validateEnvironment() {
+    if (!defined('ANTHROPIC_API_KEY') || ANTHROPIC_API_KEY === 'your_anthropic_api_key_here') {
+        throw new Exception("Anthropic API key not configured");
+    }
+    
+    if (!function_exists('curl_init')) {
+        throw new Exception("cURL extension not available");
+    }
+    
+    return true;
+}
+
+// Validate environment before processing
+validateEnvironment();
+
+// Only run in CLI mode for security
+if (!isCommandLine()) {
+    http_response_code(403);
+    echo "This script can only be run from command line";
+    exit(1);
+}
+?> 

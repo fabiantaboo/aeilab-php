@@ -156,6 +156,28 @@ class Setup {
         
         $pdo->exec($dialogMessagesTableSQL);
         
+        // Create dialog jobs table for background processing
+        $dialogJobsTableSQL = "
+            CREATE TABLE IF NOT EXISTS dialog_jobs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                dialog_id INT NOT NULL,
+                status ENUM('pending', 'in_progress', 'completed', 'failed') DEFAULT 'pending',
+                current_turn INT DEFAULT 0,
+                max_turns INT NOT NULL,
+                next_character_type ENUM('AEI', 'User') NOT NULL,
+                last_processed_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                error_message TEXT NULL,
+                FOREIGN KEY (dialog_id) REFERENCES dialogs(id) ON DELETE CASCADE,
+                INDEX idx_dialog_id (dialog_id),
+                INDEX idx_status (status),
+                INDEX idx_last_processed (last_processed_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$this->charset} COLLATE={$this->charset}_unicode_ci
+        ";
+        
+        $pdo->exec($dialogJobsTableSQL);
+        
         // Create activity log table
         $activityLogSQL = "
             CREATE TABLE IF NOT EXISTS activity_log (
@@ -244,7 +266,7 @@ class Setup {
             $pdo = new PDO($dsn, $this->username, $this->password);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
-            $requiredTables = ['users', 'characters', 'dialogs', 'dialog_messages', 'activity_log'];
+            $requiredTables = ['users', 'characters', 'dialogs', 'dialog_messages', 'dialog_jobs', 'activity_log'];
             
             foreach ($requiredTables as $table) {
                 $stmt = $pdo->prepare("SHOW TABLES LIKE ?");

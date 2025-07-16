@@ -20,6 +20,9 @@ if (!$dialogData) {
 $messages = $dialog->getMessages($dialogId);
 $statuses = $dialog->getStatuses();
 
+// Get job status
+$jobStatus = $dialogJob->getByDialogId($dialogId);
+
 includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
 ?>
 
@@ -58,6 +61,64 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                     <div class="mb-4">
                         <h6>Description</h6>
                         <p class="text-muted"><?php echo nl2br(htmlspecialchars($dialogData['description'])); ?></p>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- Job Status Display -->
+                <?php if ($jobStatus): ?>
+                    <div class="mb-4">
+                        <h6>Background Job Status</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <small class="text-muted">Status:</small><br>
+                                <?php
+                                $statusClass = [
+                                    'pending' => 'warning',
+                                    'in_progress' => 'info',
+                                    'completed' => 'success',
+                                    'failed' => 'danger'
+                                ];
+                                $statusIcon = [
+                                    'pending' => 'clock',
+                                    'in_progress' => 'spinner fa-spin',
+                                    'completed' => 'check-circle',
+                                    'failed' => 'exclamation-triangle'
+                                ];
+                                ?>
+                                <span class="badge bg-<?php echo $statusClass[$jobStatus['status']]; ?>">
+                                    <i class="fas fa-<?php echo $statusIcon[$jobStatus['status']]; ?>"></i>
+                                    <?php echo ucfirst($jobStatus['status']); ?>
+                                </span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">Progress:</small><br>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: <?php echo round(($jobStatus['current_turn'] / $jobStatus['max_turns']) * 100, 1); ?>%">
+                                        <?php echo $jobStatus['current_turn']; ?>/<?php echo $jobStatus['max_turns']; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">Next Turn:</small><br>
+                                <span class="badge bg-<?php echo $jobStatus['next_character_type'] === 'AEI' ? 'primary' : 'secondary'; ?>">
+                                    <?php echo $jobStatus['next_character_type']; ?>
+                                </span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">Last Processed:</small><br>
+                                <small class="text-muted">
+                                    <?php echo $jobStatus['last_processed_at'] ? date('H:i:s', strtotime($jobStatus['last_processed_at'])) : 'Never'; ?>
+                                </small>
+                            </div>
+                        </div>
+                        <?php if ($jobStatus['status'] === 'failed' && $jobStatus['error_message']): ?>
+                            <div class="mt-2">
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> Error: <?php echo htmlspecialchars($jobStatus['error_message']); ?>
+                                </small>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
                 

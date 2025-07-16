@@ -34,7 +34,14 @@ class Dialog {
                 $data['created_by']
             ]);
             
-            return $this->db->lastInsertId();
+            $dialogId = $this->db->lastInsertId();
+            
+            // Create background job for dialog generation
+            if ($dialogId) {
+                $this->createDialogJob($dialogId, $data['turns_per_topic'] ?? 5);
+            }
+            
+            return $dialogId;
         } catch (Exception $e) {
             error_log("Dialog creation failed: " . $e->getMessage());
             return false;
@@ -328,6 +335,37 @@ class Dialog {
         // Users can only edit their own dialogs
         $dialog = $this->getById($dialogId);
         return $dialog && $dialog['created_by'] == $userId;
+    }
+    
+    /**
+     * Create a background job for dialog generation
+     * @param int $dialogId
+     * @param int $maxTurns
+     * @return bool
+     */
+    private function createDialogJob($dialogId, $maxTurns) {
+        try {
+            // Get the global DialogJob instance
+            global $dialogJob;
+            
+            if (!$dialogJob) {
+                // Create new instance if not available
+                $dialogJob = new DialogJob($this->db);
+            }
+            
+            // Create job starting with AEI character
+            $jobId = $dialogJob->create($dialogId, $maxTurns, DialogJob::NEXT_AEI);
+            
+            if ($jobId) {
+                error_log("Dialog job created: $jobId for dialog: $dialogId");
+                return true;
+            }
+            
+            return false;
+        } catch (Exception $e) {
+            error_log("Failed to create dialog job: " . $e->getMessage());
+            return false;
+        }
     }
 }
 ?> 

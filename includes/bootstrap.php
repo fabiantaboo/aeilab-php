@@ -12,6 +12,8 @@ require_once __DIR__ . '/../classes/Database.php';
 require_once __DIR__ . '/../classes/User.php';
 require_once __DIR__ . '/../classes/Character.php';
 require_once __DIR__ . '/../classes/Dialog.php';
+require_once __DIR__ . '/../classes/DialogJob.php';
+require_once __DIR__ . '/../classes/AnthropicAPI.php';
 
 // Initialize setup
 $setup = new Setup();
@@ -39,6 +41,9 @@ $character = new Character($database);
 
 // Initialize dialog management
 $dialog = new Dialog($database);
+
+// Initialize dialog job management
+$dialogJob = new DialogJob($database);
 
 // Check if user needs to be redirected
 function requireAuth() {
@@ -100,6 +105,9 @@ function includeHeader($title = 'AEI Lab Internal Tool') {
                     </a>
                     <a class="nav-link" href="dialogs.php">
                         <i class="fas fa-comments"></i> Dialogs
+                    </a>
+                    <a class="nav-link" href="jobs.php">
+                        <i class="fas fa-cogs"></i> Jobs
                     </a>
                     <span class="navbar-text me-3">
                         Welcome, <?php echo htmlspecialchars($_SESSION['first_name']); ?>!

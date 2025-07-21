@@ -62,7 +62,14 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
     $dialogId = $job['dialog_id'];
     
     try {
-        error_log("Dialog Processor: Processing job $jobId for dialog $dialogId");
+        // Check if this was a failed job being retried
+        $isRetry = $job['status'] === 'failed';
+        
+        if ($isRetry) {
+            error_log("Dialog Processor: Retrying previously failed job $jobId for dialog $dialogId");
+        } else {
+            error_log("Dialog Processor: Processing job $jobId for dialog $dialogId");
+        }
         
         // Mark job as in progress
         $dialogJob->updateStatus($jobId, DialogJob::STATUS_IN_PROGRESS);

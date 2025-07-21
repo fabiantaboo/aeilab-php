@@ -43,9 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get characters for selection
-$aeiCharacters = $dialog->getAEICharacters();
-$userCharacters = $dialog->getUserCharacters();
+// Get characters for selection with pairing suggestions
+$aeiCharacters = $character->getAEICharactersWithSuggestions();
+$userCharacters = $character->getUserCharactersWithSuggestions();
 
 includeHeader('Create Dialog - AEI Lab');
 ?>
@@ -120,14 +120,18 @@ includeHeader('Create Dialog - AEI Lab');
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="aei_character_id" class="form-label">AEI Character *</label>
-                                <select class="form-select" id="aei_character_id" name="aei_character_id" required>
+                                <select class="form-select" id="aei_character_id" name="aei_character_id" required onchange="suggestUserCharacter()">
                                     <option value="">Select AEI Character</option>
                                     <?php foreach ($aeiCharacters as $char): ?>
                                         <option value="<?php echo $char['id']; ?>" 
+                                                data-suggested-users="<?php echo htmlspecialchars(json_encode(array_column($char['suggested_users'], 'id'))); ?>"
                                                 <?php echo ($formData['aei_character_id'] ?? 0) == $char['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($char['name']); ?>
+                                            <?php if (!empty($char['suggested_users'])): ?>
+                                                <span class="text-success">★</span>
+                                            <?php endif; ?>
                                             <?php if ($char['description']): ?>
-                                                - <?php echo htmlspecialchars(substr($char['description'], 0, 50)); ?>
+                                                - <?php echo htmlspecialchars(substr($char['description'], 0, 40)); ?>
                                             <?php endif; ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -138,19 +142,29 @@ includeHeader('Create Dialog - AEI Lab');
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="user_character_id" class="form-label">User Character *</label>
-                                <select class="form-select" id="user_character_id" name="user_character_id" required>
+                                <select class="form-select" id="user_character_id" name="user_character_id" required onchange="suggestAEICharacter()">
                                     <option value="">Select User Character</option>
                                     <?php foreach ($userCharacters as $char): ?>
                                         <option value="<?php echo $char['id']; ?>" 
+                                                data-suggested-aei="<?php echo htmlspecialchars(json_encode(array_column($char['suggested_aei'], 'id'))); ?>"
                                                 <?php echo ($formData['user_character_id'] ?? 0) == $char['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($char['name']); ?>
+                                            <?php if (!empty($char['suggested_aei'])): ?>
+                                                <span class="text-success">★</span>
+                                            <?php endif; ?>
                                             <?php if ($char['description']): ?>
-                                                - <?php echo htmlspecialchars(substr($char['description'], 0, 50)); ?>
+                                                - <?php echo htmlspecialchars(substr($char['description'], 0, 40)); ?>
                                             <?php endif; ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                                 <div class="form-text">Choose the human-like character for role-playing.</div>
+                                <div id="pairing-suggestion" class="mt-2" style="display: none;">
+                                    <small class="text-info">
+                                        <i class="fas fa-lightbulb"></i> 
+                                        <span id="suggestion-text"></span>
+                                    </small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -290,5 +304,99 @@ includeHeader('Create Dialog - AEI Lab');
         </div>
     </div>
 </div>
+
+<script>
+function suggestUserCharacter() {
+    const aeiSelect = document.getElementById('aei_character_id');
+    const userSelect = document.getElementById('user_character_id');
+    const suggestionDiv = document.getElementById('pairing-suggestion');
+    const suggestionText = document.getElementById('suggestion-text');
+    
+    const selectedOption = aeiSelect.options[aeiSelect.selectedIndex];
+    
+    if (selectedOption.value && selectedOption.getAttribute('data-suggested-users')) {
+        const suggestedUsers = JSON.parse(selectedOption.getAttribute('data-suggested-users'));
+        
+        if (suggestedUsers.length > 0) {
+            // Highlight suggested users
+            highlightSuggestedOptions(userSelect, suggestedUsers);
+            
+            // Show suggestion if user character not selected or not paired
+            const currentUserSelection = userSelect.value;
+            if (!currentUserSelection || !suggestedUsers.includes(parseInt(currentUserSelection))) {
+                suggestionText.textContent = `This AEI character works best with specific User characters (marked with ★)`;
+                suggestionDiv.style.display = 'block';
+            } else {
+                suggestionDiv.style.display = 'none';
+            }
+        } else {
+            resetOptionStyles(userSelect);
+            suggestionDiv.style.display = 'none';
+        }
+    } else {
+        resetOptionStyles(userSelect);
+        suggestionDiv.style.display = 'none';
+    }
+}
+
+function suggestAEICharacter() {
+    const userSelect = document.getElementById('user_character_id');
+    const aeiSelect = document.getElementById('aei_character_id');
+    const suggestionDiv = document.getElementById('pairing-suggestion');
+    const suggestionText = document.getElementById('suggestion-text');
+    
+    const selectedOption = userSelect.options[userSelect.selectedIndex];
+    
+    if (selectedOption.value && selectedOption.getAttribute('data-suggested-aei')) {
+        const suggestedAEI = JSON.parse(selectedOption.getAttribute('data-suggested-aei'));
+        
+        if (suggestedAEI.length > 0) {
+            // Highlight suggested AEI characters
+            highlightSuggestedOptions(aeiSelect, suggestedAEI);
+            
+            // Show suggestion if AEI character not selected or not paired
+            const currentAEISelection = aeiSelect.value;
+            if (!currentAEISelection || !suggestedAEI.includes(parseInt(currentAEISelection))) {
+                suggestionText.textContent = `This User character works best with specific AEI characters (marked with ★)`;
+                suggestionDiv.style.display = 'block';
+            } else {
+                suggestionDiv.style.display = 'none';
+            }
+        } else {
+            resetOptionStyles(aeiSelect);
+            suggestionDiv.style.display = 'none';
+        }
+    } else {
+        resetOptionStyles(aeiSelect);
+        suggestionDiv.style.display = 'none';
+    }
+}
+
+function highlightSuggestedOptions(selectElement, suggestedIds) {
+    // Reset all options first
+    resetOptionStyles(selectElement);
+    
+    // Highlight suggested options
+    for (let option of selectElement.options) {
+        if (option.value && suggestedIds.includes(parseInt(option.value))) {
+            option.style.backgroundColor = '#e8f5e8';
+            option.style.fontWeight = 'bold';
+        }
+    }
+}
+
+function resetOptionStyles(selectElement) {
+    for (let option of selectElement.options) {
+        option.style.backgroundColor = '';
+        option.style.fontWeight = '';
+    }
+}
+
+// Initialize suggestions on page load
+document.addEventListener('DOMContentLoaded', function() {
+    suggestUserCharacter();
+    suggestAEICharacter();
+});
+</script>
 
 <?php includeFooter(); ?> 

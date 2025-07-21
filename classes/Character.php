@@ -239,5 +239,154 @@ class Character {
         $character = $this->getById($characterId);
         return $character && $character['created_by'] == $userId;
     }
+    
+    /**
+     * Create a character pairing
+     * @param int $aeiCharacterId
+     * @param int $userCharacterId
+     * @param int $createdBy
+     * @return bool
+     */
+    public function createPairing($aeiCharacterId, $userCharacterId, $createdBy) {
+        // Validate characters exist and are correct types
+        $aeiChar = $this->getById($aeiCharacterId);
+        $userChar = $this->getById($userCharacterId);
+        
+        if (!$aeiChar || $aeiChar['type'] !== 'AEI') {
+            return false;
+        }
+        
+        if (!$userChar || $userChar['type'] !== 'User') {
+            return false;
+        }
+        
+        $sql = "INSERT IGNORE INTO character_pairings (aei_character_id, user_character_id, created_by) VALUES (?, ?, ?)";
+        
+        try {
+            $this->db->query($sql, [$aeiCharacterId, $userCharacterId, $createdBy]);
+            return true;
+        } catch (Exception $e) {
+            error_log("Character pairing creation failed: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Remove a character pairing
+     * @param int $aeiCharacterId
+     * @param int $userCharacterId
+     * @return bool
+     */
+    public function removePairing($aeiCharacterId, $userCharacterId) {
+        $sql = "DELETE FROM character_pairings WHERE aei_character_id = ? AND user_character_id = ?";
+        
+        try {
+            $this->db->query($sql, [$aeiCharacterId, $userCharacterId]);
+            return true;
+        } catch (Exception $e) {
+            error_log("Character pairing removal failed: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get suggested user characters for an AEI character
+     * @param int $aeiCharacterId
+     * @return array
+     */
+    public function getSuggestedUserCharacters($aeiCharacterId) {
+        $sql = "SELECT c.*, cp.created_at as paired_at
+                FROM character_pairings cp
+                JOIN characters c ON cp.user_character_id = c.id
+                WHERE cp.aei_character_id = ? AND c.is_active = 1
+                ORDER BY cp.created_at ASC";
+        
+        return $this->db->fetchAll($sql, [$aeiCharacterId]);
+    }
+    
+    /**
+     * Get suggested AEI characters for a user character
+     * @param int $userCharacterId
+     * @return array
+     */
+    public function getSuggestedAEICharacters($userCharacterId) {
+        $sql = "SELECT c.*, cp.created_at as paired_at
+                FROM character_pairings cp
+                JOIN characters c ON cp.aei_character_id = c.id
+                WHERE cp.user_character_id = ? AND c.is_active = 1
+                ORDER BY cp.created_at ASC";
+        
+        return $this->db->fetchAll($sql, [$userCharacterId]);
+    }
+    
+    /**
+     * Get all pairings for a character
+     * @param int $characterId
+     * @return array
+     */
+    public function getPairingsForCharacter($characterId) {
+        $character = $this->getById($characterId);
+        if (!$character) {
+            return [];
+        }
+        
+        if ($character['type'] === 'AEI') {
+            $sql = "SELECT cp.*, c.name as partner_name, c.type as partner_type, u.username as creator_name
+                    FROM character_pairings cp
+                    JOIN characters c ON cp.user_character_id = c.id
+                    JOIN users u ON cp.created_by = u.id
+                    WHERE cp.aei_character_id = ?
+                    ORDER BY cp.created_at ASC";
+        } else {
+            $sql = "SELECT cp.*, c.name as partner_name, c.type as partner_type, u.username as creator_name
+                    FROM character_pairings cp
+                    JOIN characters c ON cp.aei_character_id = c.id
+                    JOIN users u ON cp.created_by = u.id
+                    WHERE cp.user_character_id = ?
+                    ORDER BY cp.created_at ASC";
+        }
+        
+        return $this->db->fetchAll($sql, [$characterId]);
+    }
+    
+    /**
+     * Check if two characters are paired
+     * @param int $aeiCharacterId
+     * @param int $userCharacterId
+     * @return bool
+     */
+    public function arePaired($aeiCharacterId, $userCharacterId) {
+        $sql = "SELECT COUNT(*) FROM character_pairings WHERE aei_character_id = ? AND user_character_id = ?";
+        $result = $this->db->fetch($sql, [$aeiCharacterId, $userCharacterId]);
+        return $result && $result['COUNT(*)'] > 0;
+    }
+    
+    /**
+     * Get all AEI characters with their suggested user characters
+     * @return array
+     */
+    public function getAEICharactersWithSuggestions() {
+        $aeiCharacters = $this->getAll(['type' => 'AEI', 'is_active' => 1]);
+        
+        foreach ($aeiCharacters as &$aeiChar) {
+            $aeiChar['suggested_users'] = $this->getSuggestedUserCharacters($aeiChar['id']);
+        }
+        
+        return $aeiCharacters;
+    }
+    
+    /**
+     * Get all user characters with their suggested AEI characters
+     * @return array
+     */
+    public function getUserCharactersWithSuggestions() {
+        $userCharacters = $this->getAll(['type' => 'User', 'is_active' => 1]);
+        
+        foreach ($userCharacters as &$userChar) {
+            $userChar['suggested_aei'] = $this->getSuggestedAEICharacters($userChar['id']);
+        }
+        
+        return $userCharacters;
+    }
 }
 ?> 

@@ -16,8 +16,80 @@ if (!$characterData) {
     exit;
 }
 
+// Handle pairing actions
+$message = '';
+$messageType = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf_token = $_POST['csrf_token'] ?? '';
+    
+    if (!$user->validateCSRFToken($csrf_token)) {
+        $message = 'Invalid security token. Please try again.';
+        $messageType = 'danger';
+    } else {
+        $action = $_POST['action'] ?? '';
+        
+        if ($action === 'add_pairing') {
+            $partnerId = intval($_POST['partner_id'] ?? 0);
+            
+            if ($characterData['type'] === 'AEI') {
+                $success = $character->createPairing($characterId, $partnerId, $_SESSION['user_id']);
+            } else {
+                $success = $character->createPairing($partnerId, $characterId, $_SESSION['user_id']);
+            }
+            
+            if ($success) {
+                $message = 'Character pairing created successfully!';
+                $messageType = 'success';
+            } else {
+                $message = 'Failed to create pairing. Check that both characters exist and are different types.';
+                $messageType = 'danger';
+            }
+        } elseif ($action === 'remove_pairing') {
+            $partnerId = intval($_POST['partner_id'] ?? 0);
+            
+            if ($characterData['type'] === 'AEI') {
+                $success = $character->removePairing($characterId, $partnerId);
+            } else {
+                $success = $character->removePairing($partnerId, $characterId);
+            }
+            
+            if ($success) {
+                $message = 'Character pairing removed successfully!';
+                $messageType = 'success';
+            } else {
+                $message = 'Failed to remove pairing.';
+                $messageType = 'danger';
+            }
+        }
+    }
+}
+
+// Get pairings for this character
+$pairings = $character->getPairingsForCharacter($characterId);
+
+// Get available characters for pairing
+if ($characterData['type'] === 'AEI') {
+    $availableForPairing = $character->getAll(['type' => 'User', 'is_active' => 1]);
+} else {
+    $availableForPairing = $character->getAll(['type' => 'AEI', 'is_active' => 1]);
+}
+
+// Filter out already paired characters
+$pairedIds = array_column($pairings, $characterData['type'] === 'AEI' ? 'user_character_id' : 'aei_character_id');
+$availableForPairing = array_filter($availableForPairing, function($char) use ($pairedIds) {
+    return !in_array($char['id'], $pairedIds);
+});
+
 includeHeader('Character: ' . $characterData['name'] . ' - AEI Lab');
 ?>
+
+<?php if ($message): ?>
+    <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show" role="alert">
+        <?php echo htmlspecialchars($message); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
 
 <div class="row">
     <div class="col-md-8">
@@ -108,6 +180,104 @@ includeHeader('Character: ' . $characterData['name'] . ' - AEI Lab');
                             </ul>
                         <?php endif; ?>
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Character Pairings Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5><i class="fas fa-link"></i> Character Pairings</h5>
+                <small class="text-muted">
+                    Paired characters work best together and will be suggested when creating dialogs.
+                </small>
+            </div>
+            <div class="card-body">
+                <?php if (!empty($pairings)): ?>
+                    <h6>Current Pairings</h6>
+                    <div class="row mb-4">
+                        <?php foreach ($pairings as $pairing): ?>
+                            <div class="col-md-6 mb-2">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="card-title mb-1">
+                                                    <i class="fas fa-<?php echo $pairing['partner_type'] === 'AEI' ? 'robot text-success' : 'user text-info'; ?>"></i>
+                                                    <?php echo htmlspecialchars($pairing['partner_name']); ?>
+                                                </h6>
+                                                <small class="text-muted">
+                                                    <?php echo $pairing['partner_type']; ?> Character
+                                                </small><br>
+                                                <small class="text-muted">
+                                                    Paired by <?php echo htmlspecialchars($pairing['creator_name']); ?>
+                                                    on <?php echo date('M j, Y', strtotime($pairing['created_at'])); ?>
+                                                </small>
+                                            </div>
+                                            <?php if ($character->canEdit($characterId, $_SESSION['user_id'])): ?>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo $user->generateCSRFToken(); ?>">
+                                                    <input type="hidden" name="action" value="remove_pairing">
+                                                    <input type="hidden" name="partner_id" value="<?php echo $characterData['type'] === 'AEI' ? $pairing['user_character_id'] : $pairing['aei_character_id']; ?>">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm" 
+                                                            onclick="return confirm('Remove this pairing?')">
+                                                        <i class="fas fa-unlink"></i>
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if ($character->canEdit($characterId, $_SESSION['user_id']) && !empty($availableForPairing)): ?>
+                    <h6>Add New Pairing</h6>
+                    <form method="POST" class="row g-3">
+                        <input type="hidden" name="csrf_token" value="<?php echo $user->generateCSRFToken(); ?>">
+                        <input type="hidden" name="action" value="add_pairing">
+                        <div class="col-md-8">
+                            <select class="form-select" name="partner_id" required>
+                                <option value="">Select <?php echo $characterData['type'] === 'AEI' ? 'User' : 'AEI'; ?> Character to Pair</option>
+                                <?php foreach ($availableForPairing as $char): ?>
+                                    <option value="<?php echo $char['id']; ?>">
+                                        <?php echo htmlspecialchars($char['name']); ?>
+                                        <?php if ($char['description']): ?>
+                                            - <?php echo htmlspecialchars(substr($char['description'], 0, 50)); ?>
+                                        <?php endif; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-link"></i> Create Pairing
+                            </button>
+                        </div>
+                    </form>
+                <?php elseif (empty($availableForPairing)): ?>
+                    <div class="text-center text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        <p class="mt-2">
+                            No <?php echo $characterData['type'] === 'AEI' ? 'User' : 'AEI'; ?> characters available for pairing.
+                            <?php if (empty($pairings)): ?>
+                                <br>Create some <?php echo $characterData['type'] === 'AEI' ? 'User' : 'AEI'; ?> characters to set up pairings.
+                            <?php endif; ?>
+                        </p>
+                        <a href="character-create.php" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-plus"></i> Create <?php echo $characterData['type'] === 'AEI' ? 'User' : 'AEI'; ?> Character
+                        </a>
+                    </div>
+                <?php endif; ?>
+                
+                <div class="mt-3">
+                    <small class="text-info">
+                        <i class="fas fa-lightbulb"></i>
+                        <strong>How pairings work:</strong> When you select a character in the dialog creation form, 
+                        paired characters will be highlighted with a ★ symbol and suggested automatically.
+                    </small>
                 </div>
             </div>
         </div>

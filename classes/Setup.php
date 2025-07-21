@@ -251,6 +251,25 @@ class Setup {
         ";
         
         $pdo->exec($charactersTableSQL);
+        
+        // Create character pairings table for suggested AEI-User combinations
+        $characterPairingsTableSQL = "
+            CREATE TABLE IF NOT EXISTS character_pairings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                aei_character_id INT NOT NULL,
+                user_character_id INT NOT NULL,
+                created_by INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (aei_character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_pairing (aei_character_id, user_character_id),
+                INDEX idx_aei_character (aei_character_id),
+                INDEX idx_user_character (user_character_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$this->charset} COLLATE={$this->charset}_unicode_ci
+        ";
+        
+        $pdo->exec($characterPairingsTableSQL);
     }
     
     /**
@@ -301,7 +320,7 @@ class Setup {
             $pdo = new PDO($dsn, $this->username, $this->password);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
-            $requiredTables = ['users', 'characters', 'dialogs', 'dialog_messages', 'dialog_jobs', 'activity_log'];
+            $requiredTables = ['users', 'characters', 'dialogs', 'dialog_messages', 'dialog_jobs', 'activity_log', 'character_pairings'];
             
             foreach ($requiredTables as $table) {
                 $stmt = $pdo->prepare("SHOW TABLES LIKE ?");

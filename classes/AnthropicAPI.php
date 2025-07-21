@@ -192,6 +192,12 @@ class AnthropicAPI {
             $errorMessage = isset($errorResponse['error']['message']) 
                 ? $errorResponse['error']['message'] 
                 : "HTTP error: " . $httpCode;
+            
+            // Add specific handling for rate limits and overload errors
+            if ($httpCode === 429 || $httpCode === 529 || strpos($errorMessage, 'overload') !== false) {
+                throw new Exception("RATE_LIMIT: " . $errorMessage);
+            }
+            
             throw new Exception($errorMessage);
         }
         

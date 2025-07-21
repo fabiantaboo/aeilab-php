@@ -150,16 +150,21 @@ class DialogJob {
     }
     
     /**
-     * Mark job as failed
+     * Mark job as failed with retry count tracking
      * @param int $jobId
      * @param string $errorMessage
      * @return bool
      */
     public function fail($jobId, $errorMessage) {
-        $sql = "UPDATE dialog_jobs SET status = ?, error_message = ?, last_processed_at = NOW(), updated_at = NOW() WHERE id = ?";
+        // Get current retry count
+        $currentJob = $this->getById($jobId);
+        $retryCount = isset($currentJob['retry_count']) ? $currentJob['retry_count'] : 0;
+        
+        $sql = "UPDATE dialog_jobs SET status = ?, error_message = ?, retry_count = ?, last_processed_at = NOW(), updated_at = NOW() WHERE id = ?";
         
         try {
-            $this->db->query($sql, [self::STATUS_FAILED, $errorMessage, $jobId]);
+            $this->db->query($sql, [self::STATUS_FAILED, $errorMessage, $retryCount, $jobId]);
+            error_log("Job $jobId failed (attempt " . ($retryCount + 1) . "): $errorMessage");
             return true;
         } catch (Exception $e) {
             error_log("Job failure update failed: " . $e->getMessage());
@@ -264,16 +269,30 @@ class DialogJob {
     }
     
     /**
-     * Reset failed jobs to retry them (failed for more than 2 minutes)
+     * Reset failed jobs to retry them with exponential backoff
      * @return int Number of reset jobs
      */
     public function resetFailedJobs() {
-        $sql = "UPDATE dialog_jobs SET status = ?, error_message = 'Retrying after failure' 
-                WHERE status = ? AND last_processed_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)";
+        // Rate limit failures: retry after 5 minutes
+        // Other failures: retry after 2 minutes
+        $rateLimitSql = "UPDATE dialog_jobs SET status = ?, error_message = 'Retrying rate limit failure', retry_count = COALESCE(retry_count, 0) + 1 
+                WHERE status = ? AND error_message LIKE '%RATE_LIMIT%' AND last_processed_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE) AND COALESCE(retry_count, 0) < 5";
+        
+        $regularSql = "UPDATE dialog_jobs SET status = ?, error_message = 'Retrying after failure', retry_count = COALESCE(retry_count, 0) + 1 
+                WHERE status = ? AND error_message NOT LIKE '%RATE_LIMIT%' AND last_processed_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE) AND COALESCE(retry_count, 0) < 3";
         
         try {
-            $stmt = $this->db->query($sql, [self::STATUS_PENDING, self::STATUS_FAILED]);
-            return $stmt->rowCount();
+            $rateLimitResets = $this->db->query($rateLimitSql, [self::STATUS_PENDING, self::STATUS_FAILED])->rowCount();
+            $regularResets = $this->db->query($regularSql, [self::STATUS_PENDING, self::STATUS_FAILED])->rowCount();
+            
+            if ($rateLimitResets > 0) {
+                error_log("Reset $rateLimitResets rate limit failed jobs");
+            }
+            if ($regularResets > 0) {
+                error_log("Reset $regularResets regular failed jobs");
+            }
+            
+            return $rateLimitResets + $regularResets;
         } catch (Exception $e) {
             error_log("Failed job reset failed: " . $e->getMessage());
             return 0;

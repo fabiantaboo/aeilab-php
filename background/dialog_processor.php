@@ -198,8 +198,17 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
         }
         
     } catch (Exception $e) {
-        error_log("Dialog Processor Error for job $jobId: " . $e->getMessage());
-        $dialogJob->fail($jobId, $e->getMessage());
+        $errorMessage = $e->getMessage();
+        error_log("Dialog Processor Error for job $jobId: " . $errorMessage);
+        
+        // Add delay for rate limit errors before failing
+        if (strpos($errorMessage, 'RATE_LIMIT') !== false) {
+            error_log("Rate limit detected for job $jobId, will retry later");
+            // Set status back to pending with delay
+            $dialogJob->updateStatus($jobId, DialogJob::STATUS_PENDING, $errorMessage);
+        } else {
+            $dialogJob->fail($jobId, $errorMessage);
+        }
     }
 }
 

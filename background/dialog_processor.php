@@ -47,10 +47,10 @@ try {
         error_log("Dialog Processor: Reset $resetJobs stuck jobs");
     }
     
-    // Retry failed jobs (give them another chance)
-    $retriedJobs = $dialogJob->retryFailedJobs();
-    if ($retriedJobs > 0) {
-        error_log("Dialog Processor: Retried $retriedJobs failed jobs");
+    // Reset failed jobs for retry
+    $retryJobs = $dialogJob->resetFailedJobs();
+    if ($retryJobs > 0) {
+        error_log("Dialog Processor: Reset $retryJobs failed jobs for retry");
     }
     
     error_log("Dialog Processor: Processing cycle completed successfully");

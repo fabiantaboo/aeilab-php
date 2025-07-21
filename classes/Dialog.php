@@ -301,8 +301,8 @@ class Dialog {
             $errors[] = 'AEI and User characters must be different';
         }
         
-        if (!empty($data['turns_per_topic']) && (!is_numeric($data['turns_per_topic']) || $data['turns_per_topic'] < 1 || $data['turns_per_topic'] > 50)) {
-            $errors[] = 'Turns per topic must be between 1 and 50';
+        if (!empty($data['turns_per_topic']) && (!is_numeric($data['turns_per_topic']) || $data['turns_per_topic'] < 1)) {
+            $errors[] = 'Turns per topic must be at least 1';
         }
         
         if (strlen($data['name']) > 100) {

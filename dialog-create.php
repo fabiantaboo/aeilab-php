@@ -102,8 +102,8 @@ includeHeader('Create Dialog - AEI Lab');
                                 <label for="turns_per_topic" class="form-label">Turns per Topic *</label>
                                 <input type="number" class="form-control" id="turns_per_topic" name="turns_per_topic" 
                                        value="<?php echo htmlspecialchars($formData['turns_per_topic'] ?? '5'); ?>" 
-                                       min="1" max="50" required>
-                                <div class="form-text">How many conversation turns for this topic (1-50).</div>
+                                       min="1" required>
+                                <div class="form-text">How many conversation turns for this topic (minimum 1, no upper limit).</div>
                             </div>
                         </div>
                     </div>

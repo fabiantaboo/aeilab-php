@@ -186,6 +186,7 @@ class Setup {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 error_message TEXT NULL,
+                retry_count INT DEFAULT 0,
                 FOREIGN KEY (dialog_id) REFERENCES dialogs(id) ON DELETE CASCADE,
                 INDEX idx_dialog_id (dialog_id),
                 INDEX idx_status (status),
@@ -194,6 +195,23 @@ class Setup {
         ";
         
         $pdo->exec($dialogJobsTableSQL);
+        
+        // Add retry_count column to existing dialog_jobs table if it doesn't exist
+        try {
+            // Check if column already exists
+            $checkRetryColumnSQL = "SHOW COLUMNS FROM dialog_jobs LIKE 'retry_count'";
+            $stmt = $pdo->query($checkRetryColumnSQL);
+            $retryColumnExists = $stmt->rowCount() > 0;
+            
+            if (!$retryColumnExists) {
+                $addRetryColumnSQL = "ALTER TABLE dialog_jobs ADD COLUMN retry_count INT DEFAULT 0 AFTER error_message";
+                $pdo->exec($addRetryColumnSQL);
+                error_log("Setup: Added retry_count column to dialog_jobs table");
+            }
+        } catch (Exception $e) {
+            // Column might already exist or other error, continue
+            error_log("Warning: Could not add retry_count column: " . $e->getMessage());
+        }
         
         // Create activity log table
         $activityLogSQL = "

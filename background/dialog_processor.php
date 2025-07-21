@@ -20,13 +20,6 @@ try {
     // Initialize Anthropic API
     $anthropicAPI = new AnthropicAPI(defined('ANTHROPIC_API_KEY') ? ANTHROPIC_API_KEY : null);
     
-    // FIRST: Auto-restart failed jobs
-    error_log("Dialog Processor: Checking for failed jobs to auto-restart...");
-    $restartedJobs = $dialogJob->autoRestartFailedJobs(3); // Max 3 restart attempts
-    if ($restartedJobs > 0) {
-        error_log("Dialog Processor: Auto-restarted $restartedJobs failed jobs");
-    }
-    
     // Get pending jobs
     $pendingJobs = $dialogJob->getPendingJobs();
     

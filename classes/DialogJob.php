@@ -74,17 +74,17 @@ class DialogJob {
     }
     
     /**
-     * Get all active jobs (pending, in progress, and failed)
+     * Get all active jobs (pending or in progress)
      * @return array
      */
     public function getActiveJobs() {
         $sql = "SELECT dj.*, d.name as dialog_name, d.topic
                 FROM dialog_jobs dj
                 JOIN dialogs d ON dj.dialog_id = d.id
-                WHERE dj.status IN (?, ?, ?)
+                WHERE dj.status IN (?, ?)
                 ORDER BY dj.created_at DESC";
         
-        return $this->db->fetchAll($sql, [self::STATUS_PENDING, self::STATUS_IN_PROGRESS, self::STATUS_FAILED]);
+        return $this->db->fetchAll($sql, [self::STATUS_PENDING, self::STATUS_IN_PROGRESS]);
     }
     
     /**
@@ -253,87 +253,6 @@ class DialogJob {
             error_log("Job reset failed: " . $e->getMessage());
             return 0;
         }
-    }
-    
-    /**
-     * Restart a failed dialog job
-     * @param int $jobId
-     * @return bool
-     */
-    public function restart($jobId) {
-        try {
-            // First check if the job exists and is actually failed
-            $job = $this->getById($jobId);
-            if (!$job) {
-                error_log("Cannot restart job $jobId: Job not found");
-                return false;
-            }
-            
-            if ($job['status'] !== self::STATUS_FAILED) {
-                error_log("Cannot restart job $jobId: Job status is not 'failed' (current: {$job['status']})");
-                return false;
-            }
-            
-            // Reset the job to pending status and clear error message, increment restart count
-            $sql = "UPDATE dialog_jobs SET 
-                        status = ?, 
-                        error_message = NULL, 
-                        last_processed_at = NULL,
-                        restart_count = restart_count + 1,
-                        updated_at = NOW() 
-                    WHERE id = ?";
-            
-            $this->db->query($sql, [self::STATUS_PENDING, $jobId]);
-            
-            // Also update the dialog status back to in_progress if it was completed due to the failure
-            if ($job['dialog_id']) {
-                $dialogSql = "UPDATE dialogs SET status = 'in_progress' WHERE id = ? AND status != 'completed'";
-                $this->db->query($dialogSql, [$job['dialog_id']]);
-            }
-            
-            error_log("Dialog job restarted: $jobId (restart count: " . ($job['restart_count'] + 1) . ")");
-            return true;
-            
-        } catch (Exception $e) {
-            error_log("Job restart failed: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Get failed jobs that can be automatically restarted
-     * @param int $maxRestarts Maximum number of restart attempts (default: 3)
-     * @return array
-     */
-    public function getFailedJobsForAutoRestart($maxRestarts = 3) {
-        $sql = "SELECT dj.*, d.name as dialog_name, d.topic 
-                FROM dialog_jobs dj
-                JOIN dialogs d ON dj.dialog_id = d.id
-                WHERE dj.status = ? 
-                AND dj.restart_count < ? 
-                AND dj.updated_at < DATE_SUB(NOW(), INTERVAL 60 SECOND)
-                ORDER BY dj.updated_at ASC";
-        
-        return $this->db->fetchAll($sql, [self::STATUS_FAILED, $maxRestarts]);
-    }
-    
-    /**
-     * Automatically restart all eligible failed jobs
-     * @param int $maxRestarts Maximum number of restart attempts (default: 3)
-     * @return int Number of jobs restarted
-     */
-    public function autoRestartFailedJobs($maxRestarts = 3) {
-        $failedJobs = $this->getFailedJobsForAutoRestart($maxRestarts);
-        $restarted = 0;
-        
-        foreach ($failedJobs as $job) {
-            if ($this->restart($job['id'])) {
-                $restarted++;
-                error_log("Auto-restarted job {$job['id']} for dialog '{$job['dialog_name']}' (attempt " . ($job['restart_count'] + 1) . "/$maxRestarts)");
-            }
-        }
-        
-        return $restarted;
     }
 }
 ?> 

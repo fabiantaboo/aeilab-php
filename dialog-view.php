@@ -16,50 +16,6 @@ if (!$dialogData) {
     exit;
 }
 
-$error = '';
-$success = '';
-
-// Handle restart action
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    $csrf_token = $_POST['csrf_token'] ?? '';
-    
-    if (!$user->validateCSRFToken($csrf_token)) {
-        $error = 'Ungültiger Sicherheitstoken. Bitte versuchen Sie es erneut.';
-    } else {
-        switch ($action) {
-            case 'restart_job':
-                // Check permissions
-                if (!$dialog->canEdit($dialogId, $_SESSION['user_id'])) {
-                    $error = 'Sie haben keine Berechtigung, diesen Dialog neu zu starten.';
-                    break;
-                }
-                
-                // Get the current job
-                $jobStatus = $dialogJob->getByDialogId($dialogId);
-                if (!$jobStatus) {
-                    $error = 'Kein Job für diesen Dialog gefunden.';
-                    break;
-                }
-                
-                if ($jobStatus['status'] !== 'failed') {
-                    $error = 'Nur fehlgeschlagene Jobs können neu gestartet werden.';
-                    break;
-                }
-                
-                // Restart the job
-                if ($dialogJob->restart($jobStatus['id'])) {
-                    $success = 'Dialog wurde erfolgreich neu gestartet und wird in Kürze verarbeitet.';
-                    // Refresh job status after restart
-                    $jobStatus = $dialogJob->getByDialogId($dialogId);
-                } else {
-                    $error = 'Neustart des Dialogs fehlgeschlagen. Bitte versuchen Sie es erneut.';
-                }
-                break;
-        }
-    }
-}
-
 // Get dialog messages
 $messages = $dialog->getMessages($dialogId);
 $statuses = $dialog->getStatuses();
@@ -69,20 +25,6 @@ $jobStatus = $dialogJob->getByDialogId($dialogId);
 
 includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
 ?>
-
-<?php if ($error): ?>
-    <div class="alert alert-danger alert-dismissible fade show">
-        <?php echo $error; ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-<?php endif; ?>
-
-<?php if ($success): ?>
-    <div class="alert alert-success alert-dismissible fade show">
-        <?php echo $success; ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-<?php endif; ?>
 
 <div class="row">
     <div class="col-md-8">
@@ -174,27 +116,6 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                             <div class="mt-2">
                                 <small class="text-danger">
                                     <i class="fas fa-exclamation-triangle"></i> Error: <?php echo htmlspecialchars($jobStatus['error_message']); ?>
-                                </small>
-                                <?php if (isset($jobStatus['restart_count']) && $jobStatus['restart_count'] > 0): ?>
-                                    <br><small class="text-warning">
-                                        <i class="fas fa-redo"></i> Automatisch neu gestartet: <?php echo $jobStatus['restart_count']; ?> mal
-                                    </small>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($jobStatus['status'] === 'failed' && $dialog->canEdit($dialogId, $_SESSION['user_id'])): ?>
-                            <div class="mt-3">
-                                <form method="POST" style="display: inline;">
-                                    <input type="hidden" name="action" value="restart_job">
-                                    <input type="hidden" name="csrf_token" value="<?php echo $user->generateCSRFToken(); ?>">
-                                    <button type="submit" class="btn btn-warning btn-sm" 
-                                            onclick="return confirm('Sind Sie sicher, dass Sie diesen fehlgeschlagenen Dialog neu starten möchten?')">
-                                        <i class="fas fa-redo"></i> Dialog neu starten
-                                    </button>
-                                </form>
-                                <small class="text-muted d-block mt-1">
-                                    Der Dialog wird von vorne neu gestartet und in Kürze verarbeitet.
                                 </small>
                             </div>
                         <?php endif; ?>

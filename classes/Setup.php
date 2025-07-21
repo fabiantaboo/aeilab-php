@@ -182,7 +182,6 @@ class Setup {
                 current_turn INT DEFAULT 0,
                 max_turns INT NOT NULL,
                 next_character_type ENUM('AEI', 'User') NOT NULL,
-                restart_count INT DEFAULT 0,
                 last_processed_at TIMESTAMP NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -195,22 +194,6 @@ class Setup {
         ";
         
         $pdo->exec($dialogJobsTableSQL);
-        
-        // Add restart_count column to existing dialog_jobs table if it doesn't exist
-        try {
-            // Check if column already exists
-            $checkColumnSQL = "SHOW COLUMNS FROM dialog_jobs LIKE 'restart_count'";
-            $stmt = $pdo->query($checkColumnSQL);
-            $columnExists = $stmt->rowCount() > 0;
-            
-            if (!$columnExists) {
-                $addColumnSQL = "ALTER TABLE dialog_jobs ADD COLUMN restart_count INT DEFAULT 0 AFTER next_character_type";
-                $pdo->exec($addColumnSQL);
-            }
-        } catch (Exception $e) {
-            // Column might already exist or other error, continue
-            error_log("Warning: Could not add restart_count column: " . $e->getMessage());
-        }
         
         // Create activity log table
         $activityLogSQL = "

@@ -172,7 +172,6 @@ includeHeader('Dialog Jobs - AEI Lab');
                                         <th>Status</th>
                                         <th>Progress</th>
                                         <th>Next Turn</th>
-                                        <th>Restarts</th>
                                         <th>Last Processed</th>
                                         <th>Actions</th>
                                     </tr>
@@ -221,15 +220,6 @@ includeHeader('Dialog Jobs - AEI Lab');
                                                 <span class="badge bg-<?php echo $job['next_character_type'] === 'AEI' ? 'primary' : 'secondary'; ?>">
                                                     <?php echo $job['next_character_type']; ?>
                                                 </span>
-                                            </td>
-                                            <td>
-                                                <?php if (isset($job['restart_count']) && $job['restart_count'] > 0): ?>
-                                                    <span class="badge bg-warning">
-                                                        <i class="fas fa-redo"></i> <?php echo $job['restart_count']; ?>
-                                                    </span>
-                                                <?php else: ?>
-                                                    <small class="text-muted">0</small>
-                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <?php if ($job['last_processed_at']): ?>

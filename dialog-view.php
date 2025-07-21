@@ -21,10 +21,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($jobId > 0) {
                     $jobData = $dialogJob->getById($jobId);
                     if ($jobData && $jobData['dialog_id'] == $dialogId) {
-                        if ($dialogJob->restart($jobId)) {
-                            $success = 'Dialog-Job wurde erfolgreich neu gestartet und wird in Kürze verarbeitet.';
+                        // Check if user can restart (admins or dialog creators)
+                        if ($user->isAdmin() || ($dialogData && $dialogData['created_by'] == $_SESSION['user_id'])) {
+                            if ($dialogJob->restart($jobId)) {
+                                $success = 'Dialog-Job wurde erfolgreich neu gestartet und wird in Kürze verarbeitet.';
+                            } else {
+                                $error = 'Fehler beim Neustart des Dialog-Jobs. Bitte versuchen Sie es später erneut.';
+                            }
                         } else {
-                            $error = 'Fehler beim Neustart des Dialog-Jobs. Bitte versuchen Sie es später erneut.';
+                            $error = 'Sie haben keine Berechtigung, diesen Dialog-Job neu zu starten.';
                         }
                     } else {
                         $error = 'Job nicht gefunden oder gehört nicht zu diesem Dialog.';
@@ -184,7 +189,7 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                                 </small>
                             </div>
                         <?php endif; ?>
-                        <?php if ($jobStatus['status'] === 'failed' && $dialog->canEdit($dialogId, $_SESSION['user_id'])): ?>
+                        <?php if ($jobStatus['status'] === 'failed'): ?>
                             <div class="mt-3">
                                 <form method="POST" style="display: inline;">
                                     <input type="hidden" name="action" value="restart_job">
@@ -195,6 +200,12 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                                         <i class="fas fa-redo"></i> Dialog neu starten
                                     </button>
                                 </form>
+                            </div>
+                        <?php endif; ?>
+                        <?php if (isset($_GET['debug']) && $_GET['debug'] == '1'): ?>
+                            <div class="mt-2 small text-muted">
+                                Debug: Status = "<?php echo $jobStatus['status'] ?? 'null'; ?>", 
+                                Job ID = <?php echo $jobStatus['id'] ?? 'null'; ?>
                             </div>
                         <?php endif; ?>
                     </div>

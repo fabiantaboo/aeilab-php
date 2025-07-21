@@ -59,22 +59,18 @@ class DialogJob {
     
     /**
      * Get all pending jobs ready for processing
-     * Now includes failed jobs for retry
      * @return array
      */
     public function getPendingJobs() {
-        // First, reset failed jobs that are older than 5 minutes to give them another chance
-        $this->retryFailedJobs();
-        
         $sql = "SELECT dj.*, d.name as dialog_name, d.topic, d.aei_character_id, d.user_character_id
                 FROM dialog_jobs dj
                 JOIN dialogs d ON dj.dialog_id = d.id
-                WHERE dj.status IN (?, ?) 
+                WHERE dj.status = ? 
                 AND (dj.last_processed_at IS NULL OR dj.last_processed_at < DATE_SUB(NOW(), INTERVAL 30 SECOND))
                 AND dj.current_turn < dj.max_turns
                 ORDER BY dj.created_at ASC";
         
-        return $this->db->fetchAll($sql, [self::STATUS_PENDING, self::STATUS_FAILED]);
+        return $this->db->fetchAll($sql, [self::STATUS_PENDING]);
     }
     
     /**
@@ -258,22 +254,68 @@ class DialogJob {
             return 0;
         }
     }
-
+    
     /**
-     * Retry failed jobs that are older than 5 minutes.
-     * This is useful for jobs that might have failed due to temporary issues.
+     * Retry failed jobs automatically (older than 5 minutes)
+     * This allows failed jobs to be processed again on the next cycle
      * @return int Number of retried jobs
      */
     public function retryFailedJobs() {
-        $sql = "UPDATE dialog_jobs SET status = ?, error_message = NULL, updated_at = NOW() 
-                WHERE status = ? AND last_processed_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE)";
+        $sql = "UPDATE dialog_jobs SET status = ?, error_message = CONCAT(COALESCE(error_message, ''), ' [RETRIED at ', NOW(), ']')
+                WHERE status = ? 
+                AND updated_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                AND current_turn < max_turns";
         
         try {
             $stmt = $this->db->query($sql, [self::STATUS_PENDING, self::STATUS_FAILED]);
-            return $stmt->rowCount();
+            $retriedCount = $stmt->rowCount();
+            
+            if ($retriedCount > 0) {
+                error_log("DialogJob: Retried $retriedCount failed jobs");
+            }
+            
+            return $retriedCount;
         } catch (Exception $e) {
-            error_log("Failed job retry failed: " . $e->getMessage());
+            error_log("Job retry failed: " . $e->getMessage());
             return 0;
+        }
+    }
+    
+    /**
+     * Get all failed jobs for manual inspection
+     * @return array
+     */
+    public function getFailedJobs() {
+        $sql = "SELECT dj.*, d.name as dialog_name, d.topic
+                FROM dialog_jobs dj
+                JOIN dialogs d ON dj.dialog_id = d.id
+                WHERE dj.status = ?
+                ORDER BY dj.updated_at DESC";
+        
+        return $this->db->fetchAll($sql, [self::STATUS_FAILED]);
+    }
+    
+    /**
+     * Manually retry a specific failed job
+     * @param int $jobId
+     * @return bool
+     */
+    public function retryJob($jobId) {
+        $sql = "UPDATE dialog_jobs SET status = ?, error_message = CONCAT(COALESCE(error_message, ''), ' [MANUALLY RETRIED at ', NOW(), ']'), updated_at = NOW()
+                WHERE id = ? AND status = ?";
+        
+        try {
+            $stmt = $this->db->query($sql, [self::STATUS_PENDING, $jobId, self::STATUS_FAILED]);
+            $success = $stmt->rowCount() > 0;
+            
+            if ($success) {
+                error_log("DialogJob: Manually retried job $jobId");
+            }
+            
+            return $success;
+        } catch (Exception $e) {
+            error_log("Manual job retry failed for job $jobId: " . $e->getMessage());
+            return false;
         }
     }
 }

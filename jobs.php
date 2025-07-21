@@ -4,6 +4,39 @@ require_once 'includes/bootstrap.php';
 // Check if user is logged in
 $user->requireLogin();
 
+$success = '';
+$error = '';
+
+// Handle POST actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $csrf_token = $_POST['csrf_token'] ?? '';
+    
+    if (!$user->validateCSRFToken($csrf_token)) {
+        $error = 'Invalid security token. Please try again.';
+    } else {
+        switch ($action) {
+            case 'retry_job':
+                $jobId = intval($_POST['job_id']);
+                if ($dialogJob->retryJob($jobId)) {
+                    $success = 'Job wurde erfolgreich für erneute Verarbeitung markiert.';
+                } else {
+                    $error = 'Job konnte nicht erneut gestartet werden.';
+                }
+                break;
+            
+            case 'retry_all_failed':
+                $retriedCount = $dialogJob->retryFailedJobs();
+                if ($retriedCount > 0) {
+                    $success = "$retriedCount fehlgeschlagene Jobs wurden für erneute Verarbeitung markiert.";
+                } else {
+                    $error = 'Keine fehlgeschlagenen Jobs zum Wiederholen gefunden.';
+                }
+                break;
+        }
+    }
+}
+
 // Get filter parameters
 $status = $_GET['status'] ?? 'all';
 $page = max(1, intval($_GET['page'] ?? 1));
@@ -11,9 +44,25 @@ $perPage = 20;
 
 // Get jobs based on filter
 if ($status === 'all') {
-    $jobs = $dialogJob->getActiveJobs();
+    $activeJobs = $dialogJob->getActiveJobs();
+    $failedJobs = $dialogJob->getFailedJobs();
+    $jobs = array_merge($activeJobs, $failedJobs);
+} else if ($status === 'failed') {
+    $jobs = $dialogJob->getFailedJobs();
+} else if ($status === 'pending') {
+    $jobs = array_filter($dialogJob->getActiveJobs(), function($job) {
+        return $job['status'] === 'pending';
+    });
+} else if ($status === 'in_progress') {
+    $jobs = array_filter($dialogJob->getActiveJobs(), function($job) {
+        return $job['status'] === 'in_progress';
+    });
+} else if ($status === 'completed') {
+    $jobs = array_filter($dialogJob->getActiveJobs(), function($job) {
+        return $job['status'] === 'completed';
+    });
 } else {
-    $jobs = $dialogJob->getActiveJobs(); // Filter by status would be implemented here
+    $jobs = $dialogJob->getActiveJobs(); // Default fallback
 }
 
 // Get statistics
@@ -44,6 +93,21 @@ includeHeader('Dialog Jobs - AEI Lab');
                     </a>
                 </div>
             </div>
+            
+            <!-- Messages -->
+            <?php if ($success): ?>
+                <div class="alert alert-success alert-dismissible fade show">
+                    <?php echo htmlspecialchars($success); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($error): ?>
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <?php echo htmlspecialchars($error); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
             
             <!-- Statistics Cards -->
             <div class="row mb-4">
@@ -151,10 +215,36 @@ includeHeader('Dialog Jobs - AEI Lab');
                             <button type="button" class="btn btn-sm btn-outline-info" onclick="toggleAutoRefresh()">
                                 <i class="fas fa-play"></i> Auto Refresh
                             </button>
+                            <?php if ($stats['failed'] > 0): ?>
+                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="retryAllFailed()">
+                                    <i class="fas fa-redo"></i> Retry All Failed (<?php echo $stats['failed']; ?>)
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
                 <div class="card-body">
+                    <!-- Status Filter Buttons -->
+                    <div class="mb-3">
+                        <div class="btn-group" role="group">
+                            <a href="?status=all" class="btn btn-sm <?php echo $status === 'all' ? 'btn-primary' : 'btn-outline-primary'; ?>">
+                                Alle Jobs
+                            </a>
+                            <a href="?status=pending" class="btn btn-sm <?php echo $status === 'pending' ? 'btn-warning' : 'btn-outline-warning'; ?>">
+                                Pending
+                            </a>
+                            <a href="?status=in_progress" class="btn btn-sm <?php echo $status === 'in_progress' ? 'btn-info' : 'btn-outline-info'; ?>">
+                                In Progress
+                            </a>
+                            <a href="?status=completed" class="btn btn-sm <?php echo $status === 'completed' ? 'btn-success' : 'btn-outline-success'; ?>">
+                                Completed
+                            </a>
+                            <a href="?status=failed" class="btn btn-sm <?php echo $status === 'failed' ? 'btn-danger' : 'btn-outline-danger'; ?>">
+                                Failed (<?php echo $stats['failed']; ?>)
+                            </a>
+                        </div>
+                    </div>
+                    
                     <?php if (empty($jobs)): ?>
                         <div class="text-center py-5">
                             <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
@@ -238,8 +328,14 @@ includeHeader('Dialog Jobs - AEI Lab');
                                                     </a>
                                                     <?php if ($job['status'] === 'failed'): ?>
                                                         <button class="btn btn-outline-info btn-sm" 
-                                                                onclick="showErrorDetails(<?php echo $job['id']; ?>)">
+                                                                onclick="showErrorDetails(<?php echo $job['id']; ?>)"
+                                                                title="Fehlerdetails anzeigen">
                                                             <i class="fas fa-info-circle"></i>
+                                                        </button>
+                                                        <button class="btn btn-outline-success btn-sm" 
+                                                                onclick="retryJob(<?php echo $job['id']; ?>)"
+                                                                title="Job erneut starten">
+                                                            <i class="fas fa-redo"></i>
                                                         </button>
                                                     <?php endif; ?>
                                                 </div>
@@ -311,6 +407,59 @@ function toggleAutoRefresh() {
 function showErrorDetails(jobId) {
     // This would show a modal with error details
     alert('Error details for job #' + jobId);
+}
+
+function retryJob(jobId) {
+    if (confirm('Sind Sie sicher, dass Sie diesen Job erneut starten möchten?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.style.display = 'none';
+        
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'retry_job';
+        form.appendChild(actionInput);
+        
+        const jobIdInput = document.createElement('input');
+        jobIdInput.type = 'hidden';
+        jobIdInput.name = 'job_id';
+        jobIdInput.value = jobId;
+        form.appendChild(jobIdInput);
+        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '<?php echo $user->generateCSRFToken(); ?>';
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function retryAllFailed() {
+    const failedCount = <?php echo $stats['failed']; ?>;
+    if (confirm(`Sind Sie sicher, dass Sie alle ${failedCount} fehlgeschlagenen Jobs erneut starten möchten?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.style.display = 'none';
+        
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'retry_all_failed';
+        form.appendChild(actionInput);
+        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '<?php echo $user->generateCSRFToken(); ?>';
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 
 // Auto refresh every 10 seconds by default

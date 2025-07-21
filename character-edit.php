@@ -59,6 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $types = $character->getTypes();
 
+// Get current pairings for info
+$pairings = $character->getPairingsForCharacter($characterId);
+
 includeHeader('Edit Character: ' . $characterData['name'] . ' - AEI Lab');
 ?>
 
@@ -169,6 +172,53 @@ includeHeader('Edit Character: ' . $characterData['name'] . ' - AEI Lab');
                         </p>
                         <p><strong>Last Updated:</strong> <?php echo date('F j, Y', strtotime($characterData['updated_at'])); ?></p>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Character Pairings Info -->
+<div class="row mt-4">
+    <div class="col-md-8 offset-md-2">
+        <div class="card bg-light">
+            <div class="card-header">
+                <h6><i class="fas fa-link"></i> Character Pairings</h6>
+            </div>
+            <div class="card-body">
+                <?php if (!empty($pairings)): ?>
+                    <div class="mb-3">
+                        <strong>Current Pairings:</strong>
+                        <div class="mt-2">
+                            <?php foreach ($pairings as $pairing): ?>
+                                <span class="badge bg-<?php echo $pairing['partner_type'] === 'AEI' ? 'success' : 'info'; ?> me-1 mb-1">
+                                    <i class="fas fa-<?php echo $pairing['partner_type'] === 'AEI' ? 'robot' : 'user'; ?>"></i>
+                                    <?php echo htmlspecialchars($pairing['partner_name']); ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <div class="text-muted mb-3">
+                        <i class="fas fa-info-circle"></i>
+                        This character has no current pairings.
+                    </div>
+                <?php endif; ?>
+                
+                <div class="d-flex gap-2">
+                    <a href="character-view.php?id=<?php echo $characterId; ?>#pairings" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-cog"></i> Manage Pairings
+                    </a>
+                    <a href="character-view.php?id=<?php echo $characterId; ?>" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-eye"></i> View Character Details
+                    </a>
+                </div>
+                
+                <div class="mt-2">
+                    <small class="text-info">
+                        <i class="fas fa-lightbulb"></i>
+                        <strong>Tip:</strong> Paired characters are automatically suggested when creating dialogs.
+                    </small>
                 </div>
             </div>
         </div>

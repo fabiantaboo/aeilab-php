@@ -30,7 +30,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $characterId = $character->create($formData);
             
             if ($characterId) {
-                $success = 'Character created successfully!';
+                // Handle pairing if selected
+                $pairWith = $_POST['pair_with'] ?? '';
+                if ($pairWith && is_numeric($pairWith)) {
+                    $pairWithId = intval($pairWith);
+                    
+                    if ($formData['type'] === 'AEI') {
+                        $character->createPairing($characterId, $pairWithId, $_SESSION['user_id']);
+                    } else {
+                        $character->createPairing($pairWithId, $characterId, $_SESSION['user_id']);
+                    }
+                }
+                
+                $success = 'Character created successfully!' . ($pairWith ? ' Pairing has been set up.' : '');
                 $formData = []; // Clear form data
             } else {
                 $error = 'Failed to create character. Please try again.';
@@ -42,6 +54,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $types = $character->getTypes();
+
+// Get available characters for pairing
+$availableAEI = $character->getAll(['type' => 'AEI', 'is_active' => 1]);
+$availableUser = $character->getAll(['type' => 'User', 'is_active' => 1]);
 
 includeHeader('Create Character - AEI Lab');
 ?>
@@ -113,6 +129,33 @@ includeHeader('Create Character - AEI Lab');
                         <textarea class="form-control" id="description" name="description" 
                                   rows="3" maxlength="1000"><?php echo htmlspecialchars($formData['description'] ?? ''); ?></textarea>
                         <div class="form-text">Optional: Brief description of the character for reference.</div>
+                    </div>
+                    
+                    <!-- Character Pairing Section -->
+                    <div class="mb-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="fas fa-link"></i> Character Pairing (Optional)</h6>
+                                <p class="small text-muted mb-3">
+                                    Pair this character with another for intelligent suggestions in dialog creation.
+                                    Paired characters work best together.
+                                </p>
+                                
+                                <div id="pairing-selection" style="display: none;">
+                                    <label for="pair_with" class="form-label">Pair with Character</label>
+                                    <select class="form-select" id="pair_with" name="pair_with">
+                                        <option value="">No pairing</option>
+                                    </select>
+                                    <div class="form-text">
+                                        Select a character to create an automatic pairing suggestion.
+                                    </div>
+                                </div>
+                                
+                                <div id="pairing-info" class="text-muted">
+                                    <small><i class="fas fa-info-circle"></i> Select a character type above to see available pairing options.</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
@@ -198,5 +241,59 @@ includeHeader('Create Character - AEI Lab');
         </div>
     </div>
 </div>
+
+<script>
+// Character data for pairing
+const availableAEI = <?php echo json_encode($availableAEI); ?>;
+const availableUser = <?php echo json_encode($availableUser); ?>;
+
+function updatePairingOptions() {
+    const typeSelect = document.getElementById('type');
+    const pairingSelection = document.getElementById('pairing-selection');
+    const pairingInfo = document.getElementById('pairing-info');
+    const pairWithSelect = document.getElementById('pair_with');
+    
+    const selectedType = typeSelect.value;
+    
+    if (selectedType === 'AEI' || selectedType === 'User') {
+        const availableChars = selectedType === 'AEI' ? availableUser : availableAEI;
+        
+        if (availableChars.length > 0) {
+            // Clear existing options
+            pairWithSelect.innerHTML = '<option value="">No pairing</option>';
+            
+            // Add available characters
+            availableChars.forEach(char => {
+                const option = document.createElement('option');
+                option.value = char.id;
+                option.textContent = char.name;
+                if (char.description) {
+                    option.textContent += ' - ' + char.description.substring(0, 50);
+                }
+                pairWithSelect.appendChild(option);
+            });
+            
+            pairingSelection.style.display = 'block';
+            pairingInfo.style.display = 'none';
+        } else {
+            pairingSelection.style.display = 'none';
+            pairingInfo.innerHTML = `<small><i class="fas fa-info-circle text-warning"></i> No ${selectedType === 'AEI' ? 'User' : 'AEI'} characters available for pairing. Create some first!</small>`;
+            pairingInfo.style.display = 'block';
+        }
+    } else {
+        pairingSelection.style.display = 'none';
+        pairingInfo.innerHTML = '<small><i class="fas fa-info-circle"></i> Select a character type above to see available pairing options.</small>';
+        pairingInfo.style.display = 'block';
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updatePairingOptions();
+    
+    // Add event listener to type select
+    document.getElementById('type').addEventListener('change', updatePairingOptions);
+});
+</script>
 
 <?php includeFooter(); ?> 

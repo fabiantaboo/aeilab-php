@@ -185,7 +185,7 @@ includeHeader('Character: ' . $characterData['name'] . ' - AEI Lab');
         </div>
         
         <!-- Character Pairings Section -->
-        <div class="card mt-4">
+        <div class="card mt-4" id="pairings">
             <div class="card-header">
                 <h5><i class="fas fa-link"></i> Character Pairings</h5>
                 <small class="text-muted">

@@ -175,6 +175,11 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                                 <small class="text-danger">
                                     <i class="fas fa-exclamation-triangle"></i> Error: <?php echo htmlspecialchars($jobStatus['error_message']); ?>
                                 </small>
+                                <?php if (isset($jobStatus['restart_count']) && $jobStatus['restart_count'] > 0): ?>
+                                    <br><small class="text-warning">
+                                        <i class="fas fa-redo"></i> Automatisch neu gestartet: <?php echo $jobStatus['restart_count']; ?> mal
+                                    </small>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
                         

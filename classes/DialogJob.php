@@ -160,45 +160,6 @@ class DialogJob {
     }
     
     /**
-     * Restart a failed job
-     * @param int $jobId
-     * @return bool
-     */
-    public function restart($jobId) {
-        try {
-            // Get the job
-            $job = $this->getById($jobId);
-            if (!$job) {
-                error_log("Job not found for restart: $jobId");
-                return false;
-            }
-            
-            // Only allow restarting failed jobs
-            if ($job['status'] !== self::STATUS_FAILED) {
-                error_log("Cannot restart job $jobId - status is not failed: " . $job['status']);
-                return false;
-            }
-            
-            // Check if job is already complete (all turns processed)
-            if ($job['current_turn'] >= $job['max_turns']) {
-                error_log("Cannot restart job $jobId - all turns already completed");
-                return false;
-            }
-            
-            // Reset job to pending status and clear error message
-            $sql = "UPDATE dialog_jobs SET status = ?, error_message = NULL, updated_at = NOW() WHERE id = ?";
-            $this->db->query($sql, [self::STATUS_PENDING, $jobId]);
-            
-            error_log("Dialog job $jobId restarted successfully");
-            return true;
-            
-        } catch (Exception $e) {
-            error_log("Job restart failed: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
      * Check if job is ready for processing
      * @param array $job
      * @return bool
@@ -291,6 +252,50 @@ class DialogJob {
         } catch (Exception $e) {
             error_log("Job reset failed: " . $e->getMessage());
             return 0;
+        }
+    }
+    
+    /**
+     * Restart a failed dialog job
+     * @param int $jobId
+     * @return bool
+     */
+    public function restart($jobId) {
+        try {
+            // First check if the job exists and is actually failed
+            $job = $this->getById($jobId);
+            if (!$job) {
+                error_log("Cannot restart job $jobId: Job not found");
+                return false;
+            }
+            
+            if ($job['status'] !== self::STATUS_FAILED) {
+                error_log("Cannot restart job $jobId: Job status is not 'failed' (current: {$job['status']})");
+                return false;
+            }
+            
+            // Reset the job to pending status and clear error message
+            $sql = "UPDATE dialog_jobs SET 
+                        status = ?, 
+                        error_message = NULL, 
+                        last_processed_at = NULL,
+                        updated_at = NOW() 
+                    WHERE id = ?";
+            
+            $this->db->query($sql, [self::STATUS_PENDING, $jobId]);
+            
+            // Also update the dialog status back to in_progress if it was completed due to the failure
+            if ($job['dialog_id']) {
+                $dialogSql = "UPDATE dialogs SET status = 'in_progress' WHERE id = ? AND status != 'completed'";
+                $this->db->query($dialogSql, [$job['dialog_id']]);
+            }
+            
+            error_log("Dialog job restarted: $jobId");
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("Job restart failed: " . $e->getMessage());
+            return false;
         }
     }
 }

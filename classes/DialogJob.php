@@ -156,7 +156,15 @@ class DialogJob {
      * @return bool
      */
     public function fail($jobId, $errorMessage) {
-        return $this->updateStatus($jobId, self::STATUS_FAILED, $errorMessage);
+        $sql = "UPDATE dialog_jobs SET status = ?, error_message = ?, last_processed_at = NOW(), updated_at = NOW() WHERE id = ?";
+        
+        try {
+            $this->db->query($sql, [self::STATUS_FAILED, $errorMessage, $jobId]);
+            return true;
+        } catch (Exception $e) {
+            error_log("Job failure update failed: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
@@ -261,7 +269,7 @@ class DialogJob {
      */
     public function resetFailedJobs() {
         $sql = "UPDATE dialog_jobs SET status = ?, error_message = 'Retrying after failure' 
-                WHERE status = ? AND updated_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)";
+                WHERE status = ? AND last_processed_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)";
         
         try {
             $stmt = $this->db->query($sql, [self::STATUS_PENDING, self::STATUS_FAILED]);

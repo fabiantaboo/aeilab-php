@@ -4,7 +4,58 @@ require_once 'includes/bootstrap.php';
 // Require authentication
 requireAuth();
 
+$error = '';
+$success = '';
+
+// Handle POST actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $csrf_token = $_POST['csrf_token'] ?? '';
+    
+    if (!$user->validateCSRFToken($csrf_token)) {
+        $error = 'Ungültiges Sicherheitstoken. Bitte versuchen Sie es erneut.';
+    } else {
+        switch ($action) {
+            case 'restart_job':
+                $jobId = intval($_POST['job_id'] ?? 0);
+                if ($jobId > 0) {
+                    $jobData = $dialogJob->getById($jobId);
+                    if ($jobData && $jobData['dialog_id'] == $dialogId) {
+                        if ($dialogJob->restart($jobId)) {
+                            $success = 'Dialog-Job wurde erfolgreich neu gestartet und wird in Kürze verarbeitet.';
+                        } else {
+                            $error = 'Fehler beim Neustart des Dialog-Jobs. Bitte versuchen Sie es später erneut.';
+                        }
+                    } else {
+                        $error = 'Job nicht gefunden oder gehört nicht zu diesem Dialog.';
+                    }
+                } else {
+                    $error = 'Ungültige Job-ID.';
+                }
+                break;
+        }
+    }
+    
+    // Redirect to avoid resubmission
+    if ($success || $error) {
+        $params = [];
+        if ($success) $params[] = 'success=' . urlencode($success);
+        if ($error) $params[] = 'error=' . urlencode($error);
+        $queryString = !empty($params) ? '?' . implode('&', $params) : '';
+        header('Location: dialog-view.php?id=' . $dialogId . $queryString);
+        exit;
+    }
+}
+
 $dialogId = intval($_GET['id'] ?? 0);
+
+// Get success/error messages from query parameters
+if (isset($_GET['success'])) {
+    $success = $_GET['success'];
+}
+if (isset($_GET['error'])) {
+    $error = $_GET['error'];
+}
 if (!$dialogId) {
     header('Location: dialogs.php');
     exit;
@@ -25,6 +76,20 @@ $jobStatus = $dialogJob->getByDialogId($dialogId);
 
 includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
 ?>
+
+<?php if ($success): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
+<?php if ($error): ?>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($error); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
 
 <div class="row">
     <div class="col-md-8">
@@ -117,6 +182,19 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                                 <small class="text-danger">
                                     <i class="fas fa-exclamation-triangle"></i> Error: <?php echo htmlspecialchars($jobStatus['error_message']); ?>
                                 </small>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ($jobStatus['status'] === 'failed' && $dialog->canEdit($dialogId, $_SESSION['user_id'])): ?>
+                            <div class="mt-3">
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="action" value="restart_job">
+                                    <input type="hidden" name="job_id" value="<?php echo $jobStatus['id']; ?>">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $user->getCSRFToken(); ?>">
+                                    <button type="submit" class="btn btn-outline-warning btn-sm" 
+                                            onclick="return confirm('Sind Sie sicher, dass Sie den fehlgeschlagenen Dialog-Job neu starten möchten?')">
+                                        <i class="fas fa-redo"></i> Dialog neu starten
+                                    </button>
+                                </form>
                             </div>
                         <?php endif; ?>
                     </div>

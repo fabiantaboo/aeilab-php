@@ -160,6 +160,45 @@ class DialogJob {
     }
     
     /**
+     * Restart a failed job
+     * @param int $jobId
+     * @return bool
+     */
+    public function restart($jobId) {
+        try {
+            // Get the job
+            $job = $this->getById($jobId);
+            if (!$job) {
+                error_log("Job not found for restart: $jobId");
+                return false;
+            }
+            
+            // Only allow restarting failed jobs
+            if ($job['status'] !== self::STATUS_FAILED) {
+                error_log("Cannot restart job $jobId - status is not failed: " . $job['status']);
+                return false;
+            }
+            
+            // Check if job is already complete (all turns processed)
+            if ($job['current_turn'] >= $job['max_turns']) {
+                error_log("Cannot restart job $jobId - all turns already completed");
+                return false;
+            }
+            
+            // Reset job to pending status and clear error message
+            $sql = "UPDATE dialog_jobs SET status = ?, error_message = NULL, updated_at = NOW() WHERE id = ?";
+            $this->db->query($sql, [self::STATUS_PENDING, $jobId]);
+            
+            error_log("Dialog job $jobId restarted successfully");
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("Job restart failed: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
      * Check if job is ready for processing
      * @param array $job
      * @return bool

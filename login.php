@@ -85,12 +85,6 @@ includeHeader('Login - AEI Lab');
     </div>
 </div>
 
-<div class="mt-4 text-center">
-    <div class="alert alert-info">
-        <strong>Demo Credentials:</strong><br>
-        Username: <code>admin</code><br>
-        Password: <code>admin123</code>
-    </div>
-</div>
+
 
 <?php includeFooter(); ?> 

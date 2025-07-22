@@ -62,7 +62,7 @@ class Dialog {
                 JOIN characters aei ON d.aei_character_id = aei.id
                 JOIN characters user ON d.user_character_id = user.id
                 JOIN users creator ON d.created_by = creator.id
-                WHERE d.id = ?";
+                WHERE d.id = ? AND d.is_active = 1";
         
         return $this->db->fetch($sql, [$id]);
     }
@@ -81,7 +81,7 @@ class Dialog {
                 JOIN characters aei ON d.aei_character_id = aei.id
                 JOIN characters user ON d.user_character_id = user.id
                 JOIN users creator ON d.created_by = creator.id
-                WHERE 1=1";
+                WHERE d.is_active = 1";
         $params = [];
         
         if (!empty($filters['status'])) {
@@ -231,8 +231,9 @@ class Dialog {
                     SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft,
                     SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
                     SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-                    SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active
-                FROM dialogs";
+                    COUNT(*) as active
+                FROM dialogs
+                WHERE is_active = 1";
         
         $result = $this->db->fetch($sql);
         

@@ -93,7 +93,7 @@ try {
     echo "Nächste Schritte:\n";
     echo "1. Cron-Job einrichten (siehe CRON_SETUP.md)\n";
     echo "2. Einen Dialog erstellen\n";
-    echo "3. Jobs-Seite überwachen (jobs.php)\n";
+    echo "3. Dialog-Status überwachen (dialogs.php)\n";
     
 } catch (Exception $e) {
     echo "❌ FEHLER: " . $e->getMessage() . "\n";

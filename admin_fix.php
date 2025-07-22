@@ -159,8 +159,8 @@ includeHeader('Database Fix - Admin');
                     </div>
                     
                     <div class="mt-4">
-                        <a href="jobs.php" class="btn btn-outline-secondary">
-                            <i class="fas fa-cogs"></i> Check Jobs Status
+                        <a href="dialogs.php" class="btn btn-outline-secondary">
+                            <i class="fas fa-comments"></i> Check Dialogs
                         </a>
                         <a href="admin.php" class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Admin

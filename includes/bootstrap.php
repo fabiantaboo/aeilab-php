@@ -106,9 +106,6 @@ function includeHeader($title = 'AEI Lab Internal Tool') {
                     <a class="nav-link" href="dialogs.php">
                         <i class="fas fa-comments"></i> Dialogs
                     </a>
-                    <a class="nav-link" href="jobs.php">
-                        <i class="fas fa-cogs"></i> Jobs
-                    </a>
                     <span class="navbar-text me-3">
                         Welcome, <?php echo htmlspecialchars($_SESSION['first_name']); ?>!
                     </span>

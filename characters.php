@@ -193,6 +193,12 @@ includeHeader('Characters - AEI Lab');
                                                    class="btn btn-outline-primary">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
+                                                <?php if ($char['type'] === 'AEI' && $char['is_active']): ?>
+                                                    <a href="character-chat.php?character_id=<?php echo $char['id']; ?>" 
+                                                       class="btn btn-outline-success" title="Chat with Character">
+                                                        <i class="fas fa-comments"></i>
+                                                    </a>
+                                                <?php endif; ?>
                                                 <?php if ($character->canEdit($char['id'], $_SESSION['user_id'])): ?>
                                                     <a href="character-edit.php?id=<?php echo $char['id']; ?>" 
                                                        class="btn btn-outline-warning">

@@ -290,6 +290,13 @@ includeHeader('Character: ' . $characterData['name'] . ' - AEI Lab');
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
+                    <?php if ($characterData['type'] === 'AEI' && $characterData['is_active']): ?>
+                        <a href="character-chat.php?character_id=<?php echo $characterId; ?>" class="btn btn-primary">
+                            <i class="fas fa-comments"></i> Chat with Character
+                        </a>
+                        <hr class="my-2">
+                    <?php endif; ?>
+                    
                     <?php if ($character->canEdit($characterId, $_SESSION['user_id'])): ?>
                         <a href="character-edit.php?id=<?php echo $characterId; ?>" class="btn btn-warning">
                             <i class="fas fa-edit"></i> Edit Character

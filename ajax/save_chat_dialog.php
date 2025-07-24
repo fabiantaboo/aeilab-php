@@ -62,7 +62,7 @@ try {
         'aei_character_id' => $characterId,
         'user_character_id' => $userCharacterId,
         'topic' => 'Manual Chat Session',
-        'turns_per_topic' => count($chatHistory),
+        'turns_per_topic' => ceil(count($chatHistory) / 2), // Number of turns (user-ai pairs)
         'created_by' => $_SESSION['user_id']
     ];
     
@@ -73,23 +73,25 @@ try {
         exit;
     }
     
-    // Add messages to dialog
+    // Add messages to dialog with proper turn numbering
+    // Each user-ai pair should share the same turn number
     $turnNumber = 1;
-    foreach ($chatHistory as $message) {
+    foreach ($chatHistory as $index => $message) {
         $messageCharacterId = $message['sender'] === 'ai' ? $characterId : $userCharacterId;
+        
+        // Calculate turn number: each pair of messages (user + ai) = 1 turn
+        $currentTurn = floor($index / 2) + 1;
         
         $success = $dialog->addMessage(
             $dialogId,
             $messageCharacterId,
             $message['content'],
-            $turnNumber
+            $currentTurn
         );
         
         if (!$success) {
             error_log("Failed to add message to dialog: " . json_encode($message));
         }
-        
-        $turnNumber++;
     }
     
     // Update dialog status to completed

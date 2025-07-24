@@ -164,10 +164,10 @@ class AnthropicAPI {
     public function analyzeEmotionalState($conversationHistory, $characterName, $topic) {
         // Build system prompt for emotion analysis
         $systemPrompt = "You are an emotion analysis expert. Analyze the emotional state of the AEI character '$characterName' based on the conversation history about '$topic'.\n\n";
-        $systemPrompt .= "Return ONLY a JSON object with emotion values between 0.0 and 1.0 (in 0.1 increments) for these emotions:\n";
-        $systemPrompt .= "joy, sadness, fear, anger, surprise, disgust, trust, anticipation, shame, love, contempt, loneliness, pride, envy, nostalgia, gratitude, frustration, boredom\n\n";
-        $systemPrompt .= "Example format: {\"joy\": 0.3, \"sadness\": 0.7, \"anger\": 0.1, ...}\n";
-        $systemPrompt .= "Analyze the character's current emotional state based on their dialogue and responses.";
+        $systemPrompt .= "IMPORTANT: Return ONLY a valid JSON object with emotion values between 0.0 and 1.0 (in 0.1 increments).\n";
+        $systemPrompt .= "Use EXACTLY these 18 emotions (no others): joy, sadness, fear, anger, surprise, disgust, trust, anticipation, shame, love, contempt, loneliness, pride, envy, nostalgia, gratitude, frustration, boredom\n\n";
+        $systemPrompt .= "Required format: {\"joy\": 0.3, \"sadness\": 0.7, \"fear\": 0.2, \"anger\": 0.1, \"surprise\": 0.4, \"disgust\": 0.0, \"trust\": 0.8, \"anticipation\": 0.6, \"shame\": 0.1, \"love\": 0.9, \"contempt\": 0.0, \"loneliness\": 0.2, \"pride\": 0.5, \"envy\": 0.0, \"nostalgia\": 0.3, \"gratitude\": 0.7, \"frustration\": 0.2, \"boredom\": 0.0}\n\n";
+        $systemPrompt .= "DO NOT include any text before or after the JSON. DO NOT add explanations or additional emotions.";
         
         // Build conversation history for analysis
         $conversationText = "Conversation history:\n";
@@ -186,8 +186,17 @@ class AnthropicAPI {
             $response = $this->generateResponse($systemPrompt, $messages, 500);
             
             if ($response['success']) {
-                // Try to extract JSON from the response
-                $emotionData = json_decode($response['message'], true);
+                // Try to extract JSON from the response - find JSON block in the text
+                $jsonPattern = '/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/';
+                $matches = [];
+                
+                if (preg_match($jsonPattern, $response['message'], $matches)) {
+                    $jsonString = $matches[0];
+                    $emotionData = json_decode($jsonString, true);
+                } else {
+                    // If no JSON found, try to decode the whole response
+                    $emotionData = json_decode($response['message'], true);
+                }
                 
                 if (json_last_error() === JSON_ERROR_NONE && is_array($emotionData)) {
                     // Validate that all required emotions are present and values are valid

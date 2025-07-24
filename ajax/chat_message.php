@@ -42,43 +42,37 @@ try {
     $chatHistory[] = $userMessage;
     
     // Prepare conversation context for AI
-    $conversationContext = [];
-    
-    // Add system prompt
-    $conversationContext[] = [
-        'role' => 'system',
-        'content' => $characterData['system_prompt']
-    ];
+    $messages = [];
     
     // Add recent chat history (limit to last 10 messages to stay within token limits)
     $recentHistory = array_slice($chatHistory, -10);
     foreach ($recentHistory as $historyMessage) {
         if ($historyMessage['sender'] === 'user') {
-            $conversationContext[] = [
+            $messages[] = [
                 'role' => 'user',
                 'content' => $historyMessage['content']
             ];
         } else {
-            $conversationContext[] = [
-                'role' => 'assistant',
+            $messages[] = [
+                'role' => 'assistant', 
                 'content' => $historyMessage['content']
             ];
         }
     }
     
     // Get AI response using AnthropicAPI
-    $api = new AnthropicAPI($db);
-    $response = $api->generateResponse($conversationContext);
+    $api = new AnthropicAPI(ANTHROPIC_API_KEY);
+    $response = $api->generateResponse($characterData['system_prompt'], $messages, 1000);
     
-    if ($response === false) {
-        echo json_encode(['success' => false, 'error' => 'Failed to generate AI response']);
+    if (!$response['success']) {
+        echo json_encode(['success' => false, 'error' => $response['error'] ?? 'Failed to generate AI response']);
         exit;
     }
     
     // Add AI response to history
     $aiMessage = [
         'sender' => 'ai',
-        'content' => $response,
+        'content' => $response['message'],
         'timestamp' => date('Y-m-d H:i:s')
     ];
     $chatHistory[] = $aiMessage;
@@ -89,12 +83,13 @@ try {
     // Return success response
     echo json_encode([
         'success' => true,
-        'response' => $response,
+        'response' => $response['message'],
         'character_name' => $characterData['name']
     ]);
     
 } catch (Exception $e) {
     error_log("Chat message error: " . $e->getMessage());
-    echo json_encode(['success' => false, 'error' => 'Internal server error']);
+    error_log("Stack trace: " . $e->getTraceAsString());
+    echo json_encode(['success' => false, 'error' => 'Internal server error: ' . $e->getMessage()]);
 }
 ?>

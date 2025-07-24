@@ -180,6 +180,33 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
             $anthropicAPI->logUsage($response['usage'], $dialogId);
         }
         
+        // If this was an AEI turn, analyze emotions and update emotional state
+        if ($nextCharacterType === 'AEI') {
+            try {
+                // Get updated conversation history including the new message
+                $updatedHistory = $dialog->getMessages($dialogId);
+                
+                // Analyze emotional state
+                $emotionAnalysis = $anthropicAPI->analyzeEmotionalState(
+                    $updatedHistory,
+                    $characterData['name'],
+                    $dialogData['topic']
+                );
+                
+                if ($emotionAnalysis['success']) {
+                    // Adjust emotional state by 30% of the analyzed values
+                    $dialog->adjustEmotionalState($dialogId, $emotionAnalysis['emotions'], 0.3);
+                    error_log("Dialog Processor: Updated emotional state for dialog $dialogId");
+                } else {
+                    error_log("Dialog Processor: Failed to analyze emotions for dialog $dialogId: " . $emotionAnalysis['error']);
+                }
+                
+            } catch (Exception $e) {
+                error_log("Dialog Processor: Emotion analysis error for dialog $dialogId: " . $e->getMessage());
+                // Continue processing even if emotion analysis fails
+            }
+        }
+        
         // Update job progress
         $nextCharacterType = $dialogJob->getNextCharacterType($nextCharacterType);
         $dialogJob->updateProgress($jobId, $turnNumber, $nextCharacterType);

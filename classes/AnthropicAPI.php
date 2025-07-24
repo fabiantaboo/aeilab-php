@@ -155,6 +155,80 @@ class AnthropicAPI {
     }
     
     /**
+     * Analyze emotional state from conversation history
+     * @param array $conversationHistory
+     * @param string $characterName
+     * @param string $topic
+     * @return array|false
+     */
+    public function analyzeEmotionalState($conversationHistory, $characterName, $topic) {
+        // Build system prompt for emotion analysis
+        $systemPrompt = "You are an emotion analysis expert. Analyze the emotional state of the AEI character '$characterName' based on the conversation history about '$topic'.\n\n";
+        $systemPrompt .= "Return ONLY a JSON object with emotion values between 0.0 and 1.0 (in 0.1 increments) for these emotions:\n";
+        $systemPrompt .= "joy, sadness, fear, anger, surprise, disgust, trust, anticipation, shame, love, contempt, loneliness, pride, envy, nostalgia, gratitude, frustration, boredom\n\n";
+        $systemPrompt .= "Example format: {\"joy\": 0.3, \"sadness\": 0.7, \"anger\": 0.1, ...}\n";
+        $systemPrompt .= "Analyze the character's current emotional state based on their dialogue and responses.";
+        
+        // Build conversation history for analysis
+        $conversationText = "Conversation history:\n";
+        foreach ($conversationHistory as $message) {
+            $conversationText .= $message['character_name'] . " (" . $message['character_type'] . "): " . $message['message'] . "\n";
+        }
+        
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => $conversationText . "\n\nAnalyze " . $characterName . "'s current emotional state and return the JSON response."
+            ]
+        ];
+        
+        try {
+            $response = $this->generateResponse($systemPrompt, $messages, 500);
+            
+            if ($response['success']) {
+                // Try to extract JSON from the response
+                $emotionData = json_decode($response['message'], true);
+                
+                if (json_last_error() === JSON_ERROR_NONE && is_array($emotionData)) {
+                    // Validate that all required emotions are present and values are valid
+                    $requiredEmotions = ['joy', 'sadness', 'fear', 'anger', 'surprise', 'disgust',
+                                       'trust', 'anticipation', 'shame', 'love', 'contempt', 
+                                       'loneliness', 'pride', 'envy', 'nostalgia', 'gratitude',
+                                       'frustration', 'boredom'];
+                    
+                    $validEmotions = [];
+                    foreach ($requiredEmotions as $emotion) {
+                        if (isset($emotionData[$emotion])) {
+                            $value = floatval($emotionData[$emotion]);
+                            $validEmotions[$emotion] = max(0, min(1, round($value, 1)));
+                        } else {
+                            $validEmotions[$emotion] = 0.5; // Default neutral value
+                        }
+                    }
+                    
+                    return [
+                        'success' => true,
+                        'emotions' => $validEmotions,
+                        'raw_response' => $response['message']
+                    ];
+                }
+            }
+            
+            return [
+                'success' => false,
+                'error' => 'Failed to parse emotion analysis response',
+                'raw_response' => $response['message'] ?? 'No response'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
      * Make HTTP request to Anthropic API
      * @param array $payload
      * @return array

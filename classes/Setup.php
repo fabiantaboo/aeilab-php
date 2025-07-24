@@ -125,6 +125,24 @@ class Setup {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 is_active BOOLEAN DEFAULT TRUE,
+                aei_joy DECIMAL(3,2) DEFAULT 0.5,
+                aei_sadness DECIMAL(3,2) DEFAULT 0.5,
+                aei_fear DECIMAL(3,2) DEFAULT 0.5,
+                aei_anger DECIMAL(3,2) DEFAULT 0.5,
+                aei_surprise DECIMAL(3,2) DEFAULT 0.5,
+                aei_disgust DECIMAL(3,2) DEFAULT 0.5,
+                aei_trust DECIMAL(3,2) DEFAULT 0.5,
+                aei_anticipation DECIMAL(3,2) DEFAULT 0.5,
+                aei_shame DECIMAL(3,2) DEFAULT 0.5,
+                aei_love DECIMAL(3,2) DEFAULT 0.5,
+                aei_contempt DECIMAL(3,2) DEFAULT 0.5,
+                aei_loneliness DECIMAL(3,2) DEFAULT 0.5,
+                aei_pride DECIMAL(3,2) DEFAULT 0.5,
+                aei_envy DECIMAL(3,2) DEFAULT 0.5,
+                aei_nostalgia DECIMAL(3,2) DEFAULT 0.5,
+                aei_gratitude DECIMAL(3,2) DEFAULT 0.5,
+                aei_frustration DECIMAL(3,2) DEFAULT 0.5,
+                aei_boredom DECIMAL(3,2) DEFAULT 0.5,
                 FOREIGN KEY (aei_character_id) REFERENCES characters(id) ON DELETE CASCADE,
                 FOREIGN KEY (user_character_id) REFERENCES characters(id) ON DELETE CASCADE,
                 FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
@@ -270,6 +288,29 @@ class Setup {
         ";
         
         $pdo->exec($characterPairingsTableSQL);
+        
+        // Add emotional state columns to existing dialogs table if they don't exist
+        $emotionalColumns = [
+            'aei_joy', 'aei_sadness', 'aei_fear', 'aei_anger', 'aei_surprise', 'aei_disgust',
+            'aei_trust', 'aei_anticipation', 'aei_shame', 'aei_love', 'aei_contempt', 
+            'aei_loneliness', 'aei_pride', 'aei_envy', 'aei_nostalgia', 'aei_gratitude',
+            'aei_frustration', 'aei_boredom'
+        ];
+        
+        foreach ($emotionalColumns as $column) {
+            try {
+                $checkColumnSQL = "SHOW COLUMNS FROM dialogs LIKE '$column'";
+                $stmt = $pdo->query($checkColumnSQL);
+                $columnExists = $stmt->rowCount() > 0;
+                
+                if (!$columnExists) {
+                    $addColumnSQL = "ALTER TABLE dialogs ADD COLUMN $column DECIMAL(3,2) DEFAULT 0.5";
+                    $pdo->exec($addColumnSQL);
+                }
+            } catch (Exception $e) {
+                error_log("Warning: Could not add $column column: " . $e->getMessage());
+            }
+        }
     }
     
     /**

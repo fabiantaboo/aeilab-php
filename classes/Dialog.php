@@ -10,6 +10,13 @@ class Dialog {
     const STATUS_IN_PROGRESS = 'in_progress';
     const STATUS_COMPLETED = 'completed';
     
+    const EMOTIONS = [
+        'joy', 'sadness', 'fear', 'anger', 'surprise', 'disgust',
+        'trust', 'anticipation', 'shame', 'love', 'contempt', 
+        'loneliness', 'pride', 'envy', 'nostalgia', 'gratitude',
+        'frustration', 'boredom'
+    ];
+    
     public function __construct($database) {
         $this->db = $database;
     }
@@ -20,19 +27,32 @@ class Dialog {
      * @return bool|int
      */
     public function create($data) {
-        $sql = "INSERT INTO dialogs (name, description, aei_character_id, user_character_id, topic, turns_per_topic, created_by) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
+        // Build SQL with emotional columns
+        $emotionalColumns = [];
+        $emotionalValues = [];
+        $params = [
+            $data['name'],
+            $data['description'] ?? null,
+            $data['aei_character_id'],
+            $data['user_character_id'],
+            $data['topic'],
+            $data['turns_per_topic'] ?? 5,
+            $data['created_by']
+        ];
+        
+        // Add random emotional states for AEI character
+        foreach (self::EMOTIONS as $emotion) {
+            $emotionalColumns[] = "aei_$emotion";
+            $emotionalValues[] = "?";
+            $params[] = round(mt_rand(0, 100) / 100, 1); // Random value 0.0-1.0 in 0.1 steps
+        }
+        
+        $sql = "INSERT INTO dialogs (name, description, aei_character_id, user_character_id, topic, turns_per_topic, created_by, " . 
+               implode(", ", $emotionalColumns) . ") VALUES (?, ?, ?, ?, ?, ?, ?, " . 
+               implode(", ", $emotionalValues) . ")";
         
         try {
-            $this->db->query($sql, [
-                $data['name'],
-                $data['description'] ?? null,
-                $data['aei_character_id'],
-                $data['user_character_id'],
-                $data['topic'],
-                $data['turns_per_topic'] ?? 5,
-                $data['created_by']
-            ]);
+            $this->db->query($sql, $params);
             
             $dialogId = $this->db->lastInsertId();
             
@@ -331,6 +351,78 @@ class Dialog {
         }
         
         return $errors;
+    }
+    
+    /**
+     * Get current emotional state for AEI character in dialog
+     * @param int $dialogId
+     * @return array|false
+     */
+    public function getEmotionalState($dialogId) {
+        $emotionalColumns = [];
+        foreach (self::EMOTIONS as $emotion) {
+            $emotionalColumns[] = "aei_$emotion";
+        }
+        
+        $sql = "SELECT " . implode(", ", $emotionalColumns) . " FROM dialogs WHERE id = ?";
+        return $this->db->fetch($sql, [$dialogId]);
+    }
+    
+    /**
+     * Update emotional state for AEI character in dialog
+     * @param int $dialogId
+     * @param array $emotions - array of emotion => value pairs
+     * @return bool
+     */
+    public function updateEmotionalState($dialogId, $emotions) {
+        $updates = [];
+        $params = [];
+        
+        foreach ($emotions as $emotion => $value) {
+            if (in_array($emotion, self::EMOTIONS)) {
+                $updates[] = "aei_$emotion = ?";
+                $params[] = max(0, min(1, round($value, 1))); // Clamp between 0-1, round to 0.1 steps
+            }
+        }
+        
+        if (empty($updates)) {
+            return false;
+        }
+        
+        $params[] = $dialogId;
+        $sql = "UPDATE dialogs SET " . implode(", ", $updates) . " WHERE id = ?";
+        
+        try {
+            $this->db->query($sql, $params);
+            return true;
+        } catch (Exception $e) {
+            error_log("Emotional state update failed: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Adjust emotional state by percentage
+     * @param int $dialogId
+     * @param array $emotionChanges - array of emotion => change_value pairs
+     * @param float $adjustmentFactor - factor to multiply changes by (default 0.3 for 30%)
+     * @return bool
+     */
+    public function adjustEmotionalState($dialogId, $emotionChanges, $adjustmentFactor = 0.3) {
+        $currentState = $this->getEmotionalState($dialogId);
+        if (!$currentState) {
+            return false;
+        }
+        
+        $newEmotions = [];
+        foreach (self::EMOTIONS as $emotion) {
+            $currentValue = $currentState["aei_$emotion"];
+            $change = isset($emotionChanges[$emotion]) ? $emotionChanges[$emotion] * $adjustmentFactor : 0;
+            $newValue = $currentValue + $change;
+            $newEmotions[$emotion] = max(0, min(1, round($newValue, 1))); // Clamp and round
+        }
+        
+        return $this->updateEmotionalState($dialogId, $newEmotions);
     }
     
     /**

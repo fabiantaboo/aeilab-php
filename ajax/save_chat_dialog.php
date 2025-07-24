@@ -55,18 +55,22 @@ try {
         exit;
     }
     
-    // Create dialog
-    $dialogData = [
-        'name' => $dialogName,
-        'description' => 'Manual chat session saved as dialog',
-        'aei_character_id' => $characterId,
-        'user_character_id' => $userCharacterId,
-        'topic' => 'Manual Chat Session',
-        'turns_per_topic' => ceil(count($chatHistory) / 2), // Number of turns (user-ai pairs)
-        'created_by' => $_SESSION['user_id']
-    ];
+    // Create dialog directly in database WITHOUT triggering background jobs
+    $sql = "INSERT INTO dialogs (name, description, aei_character_id, user_character_id, topic, turns_per_topic, status, created_by, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
     
-    $dialogId = $dialog->create($dialogData);
+    $database->query($sql, [
+        $dialogName,
+        'Manual chat session saved as dialog',
+        $characterId,
+        $userCharacterId,
+        'Manual Chat Session',
+        ceil(count($chatHistory) / 2), // Number of turns (user-ai pairs)
+        'completed', // Set as completed immediately
+        $_SESSION['user_id']
+    ]);
+    
+    $dialogId = $database->lastInsertId();
     
     if (!$dialogId) {
         echo json_encode(['success' => false, 'error' => 'Failed to create dialog']);
@@ -93,9 +97,6 @@ try {
             error_log("Failed to add message to dialog: " . json_encode($message));
         }
     }
-    
-    // Update dialog status to completed
-    $dialog->update($dialogId, array_merge($dialogData, ['status' => 'completed']));
     
     // Clear the chat session
     unset($_SESSION['chat_messages_' . $chatSessionId]);

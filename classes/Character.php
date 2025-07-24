@@ -60,7 +60,7 @@ class Character {
         $sql = "SELECT c.*, u.username as creator_name 
                 FROM characters c 
                 JOIN users u ON c.created_by = u.id 
-                WHERE 1=1";
+                WHERE 1=1 AND c.description != 'Auto-generated user character for manual chat session'";
         $params = [];
         
         if (!empty($filters['type'])) {
@@ -168,7 +168,8 @@ class Character {
                     SUM(CASE WHEN type = 'User' THEN 1 ELSE 0 END) as user,
                     SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active,
                     SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive
-                FROM characters";
+                FROM characters
+                WHERE description != 'Auto-generated user character for manual chat session'";
         
         $result = $this->db->fetch($sql);
         
@@ -298,7 +299,8 @@ class Character {
         $sql = "SELECT c.*, cp.created_at as paired_at
                 FROM character_pairings cp
                 JOIN characters c ON cp.user_character_id = c.id
-                WHERE cp.aei_character_id = ? AND c.is_active = 1
+                WHERE cp.aei_character_id = ? AND c.is_active = 1 
+                AND c.description != 'Auto-generated user character for manual chat session'
                 ORDER BY cp.created_at ASC";
         
         return $this->db->fetchAll($sql, [$aeiCharacterId]);
@@ -314,6 +316,7 @@ class Character {
                 FROM character_pairings cp
                 JOIN characters c ON cp.aei_character_id = c.id
                 WHERE cp.user_character_id = ? AND c.is_active = 1
+                AND c.description != 'Auto-generated user character for manual chat session'
                 ORDER BY cp.created_at ASC";
         
         return $this->db->fetchAll($sql, [$userCharacterId]);
@@ -335,14 +338,16 @@ class Character {
                     FROM character_pairings cp
                     JOIN characters c ON cp.user_character_id = c.id
                     JOIN users u ON cp.created_by = u.id
-                    WHERE cp.aei_character_id = ?
+                    WHERE cp.aei_character_id = ? 
+                    AND c.description != 'Auto-generated user character for manual chat session'
                     ORDER BY cp.created_at ASC";
         } else {
             $sql = "SELECT cp.*, c.name as partner_name, c.type as partner_type, u.username as creator_name
                     FROM character_pairings cp
                     JOIN characters c ON cp.aei_character_id = c.id
                     JOIN users u ON cp.created_by = u.id
-                    WHERE cp.user_character_id = ?
+                    WHERE cp.user_character_id = ? 
+                    AND c.description != 'Auto-generated user character for manual chat session'
                     ORDER BY cp.created_at ASC";
         }
         

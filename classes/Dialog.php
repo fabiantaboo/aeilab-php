@@ -261,7 +261,7 @@ class Dialog {
      * @return array
      */
     public function getAEICharacters() {
-        $sql = "SELECT id, name, description FROM characters WHERE type = 'AEI' AND is_active = 1 ORDER BY name";
+        $sql = "SELECT id, name, description FROM characters WHERE type = 'AEI' AND is_active = 1 AND description != 'Auto-generated user character for manual chat session' ORDER BY name";
         return $this->db->fetchAll($sql);
     }
     
@@ -270,7 +270,7 @@ class Dialog {
      * @return array
      */
     public function getUserCharacters() {
-        $sql = "SELECT id, name, description FROM characters WHERE type = 'User' AND is_active = 1 ORDER BY name";
+        $sql = "SELECT id, name, description FROM characters WHERE type = 'User' AND is_active = 1 AND description != 'Auto-generated user character for manual chat session' ORDER BY name";
         return $this->db->fetchAll($sql);
     }
     

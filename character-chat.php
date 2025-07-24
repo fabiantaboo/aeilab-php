@@ -30,6 +30,38 @@ $_SESSION['chat_session_' . $characterId] = $chatSessionId;
 // Get chat history from session
 $chatHistory = $_SESSION['chat_messages_' . $chatSessionId] ?? [];
 
+// If chat is empty, generate initial AEI greeting
+if (empty($chatHistory)) {
+    try {
+        // Generate initial greeting from AEI character
+        $api = new AnthropicAPI(ANTHROPIC_API_KEY);
+        $greetingMessages = [
+            [
+                'role' => 'user',
+                'content' => 'Please introduce yourself and start a friendly conversation. Be natural and engaging.'
+            ]
+        ];
+        
+        $response = $api->generateResponse($characterData['system_prompt'], $greetingMessages, 1000);
+        
+        if ($response['success']) {
+            // Add AEI greeting to chat history
+            $greetingMessage = [
+                'sender' => 'ai',
+                'content' => $response['message'],
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+            $chatHistory[] = $greetingMessage;
+            
+            // Save to session
+            $_SESSION['chat_messages_' . $chatSessionId] = $chatHistory;
+        }
+    } catch (Exception $e) {
+        error_log("Failed to generate initial greeting: " . $e->getMessage());
+        // Continue without greeting if it fails
+    }
+}
+
 includeHeader('Chat with ' . $characterData['name'] . ' - AEI Lab');
 ?>
 
@@ -55,10 +87,12 @@ includeHeader('Chat with ' . $characterData['name'] . ' - AEI Lab');
                 <!-- Chat Messages Area -->
                 <div id="chat-messages" class="chat-messages" style="height: 500px; overflow-y: auto; padding: 20px;">
                     <?php if (empty($chatHistory)): ?>
-                        <div class="text-center text-muted py-5">
-                            <i class="fas fa-comments fa-3x mb-3"></i>
-                            <h5>Start a conversation</h5>
-                            <p>Send a message to begin chatting with <?php echo htmlspecialchars($characterData['name']); ?></p>
+                        <div class="text-center text-muted py-5" id="loading-greeting">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h5>Generating greeting...</h5>
+                            <p><?php echo htmlspecialchars($characterData['name']); ?> is preparing to chat with you</p>
                         </div>
                     <?php else: ?>
                         <?php foreach ($chatHistory as $index => $message): ?>
@@ -352,14 +386,22 @@ function clearChat() {
         },
         success: function(response) {
             if (response.success) {
-                $('#chat-messages').html(`
-                    <div class="text-center text-muted py-5">
-                        <i class="fas fa-comments fa-3x mb-3"></i>
-                        <h5>Start a conversation</h5>
-                        <p>Send a message to begin chatting with <?php echo addslashes($characterData['name']); ?></p>
-                    </div>
-                `);
-                showSuccess('Chat cleared successfully');
+                if (response.reload) {
+                    // Reload the page to start fresh with new session and AEI greeting
+                    showSuccess('Chat cleared successfully - reloading...');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    $('#chat-messages').html(`
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-comments fa-3x mb-3"></i>
+                            <h5>Start a conversation</h5>
+                            <p>Send a message to begin chatting with <?php echo addslashes($characterData['name']); ?></p>
+                        </div>
+                    `);
+                    showSuccess('Chat cleared successfully');
+                }
             } else {
                 showError(response.error || 'Failed to clear chat');
             }

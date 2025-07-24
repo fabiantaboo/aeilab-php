@@ -25,8 +25,11 @@ try {
     // Clear chat history from session
     unset($_SESSION['chat_messages_' . $chatSessionId]);
     
-    // Return success response
-    echo json_encode(['success' => true]);
+    // Also clear the chat session ID so a new one will be generated
+    unset($_SESSION['chat_session_' . $characterId]);
+    
+    // Return success response with instruction to reload page
+    echo json_encode(['success' => true, 'reload' => true]);
     
 } catch (Exception $e) {
     error_log("Clear chat error: " . $e->getMessage());

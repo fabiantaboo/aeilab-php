@@ -190,23 +190,39 @@ class Dialog {
      * @param int $characterId
      * @param string $message
      * @param int $turnNumber
+     * @param string $anthropicRequestJson
+     * @param array $emotions - emotional state at time of message (for AEI characters)
      * @return bool
      */
-    public function addMessage($dialogId, $characterId, $message, $turnNumber, $anthropicRequestJson = null) {
+    public function addMessage($dialogId, $characterId, $message, $turnNumber, $anthropicRequestJson = null, $emotions = null) {
         try {
+            // Build SQL with emotional columns if emotions are provided
+            $columns = ['dialog_id', 'character_id', 'message', 'turn_number'];
+            $placeholders = ['?', '?', '?', '?'];
+            $params = [$dialogId, $characterId, $message, $turnNumber];
+            
             // Check if anthropic_request_json column exists
             $columnCheck = $this->db->query("SHOW COLUMNS FROM dialog_messages LIKE 'anthropic_request_json'");
-            $columnExists = $columnCheck->rowCount() > 0;
+            $jsonColumnExists = $columnCheck->rowCount() > 0;
             
-            if ($columnExists) {
-                // Use new schema with JSON column
-                $sql = "INSERT INTO dialog_messages (dialog_id, character_id, message, turn_number, anthropic_request_json) VALUES (?, ?, ?, ?, ?)";
-                $params = [$dialogId, $characterId, $message, $turnNumber, $anthropicRequestJson];
-            } else {
-                // Fall back to old schema without JSON column
-                $sql = "INSERT INTO dialog_messages (dialog_id, character_id, message, turn_number) VALUES (?, ?, ?, ?)";
-                $params = [$dialogId, $characterId, $message, $turnNumber];
+            if ($jsonColumnExists && $anthropicRequestJson !== null) {
+                $columns[] = 'anthropic_request_json';
+                $placeholders[] = '?';
+                $params[] = $anthropicRequestJson;
             }
+            
+            // Add emotional columns if emotions are provided
+            if ($emotions && is_array($emotions)) {
+                foreach (self::EMOTIONS as $emotion) {
+                    if (isset($emotions[$emotion])) {
+                        $columns[] = "aei_$emotion";
+                        $placeholders[] = '?';
+                        $params[] = max(0, min(1, round($emotions[$emotion], 1)));
+                    }
+                }
+            }
+            
+            $sql = "INSERT INTO dialog_messages (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")";
             
             $this->db->query($sql, $params);
             return true;

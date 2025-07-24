@@ -48,6 +48,31 @@ try {
         echo "✅ Column 'anthropic_request_json' already exists.\n";
     }
     
+    // 2.5. Add emotional state columns to dialog_messages table
+    echo "\n--- Adding emotional state columns to dialog_messages table ---\n";
+    
+    $messageEmotionalColumns = [
+        'aei_joy', 'aei_sadness', 'aei_fear', 'aei_anger', 'aei_surprise', 'aei_disgust',
+        'aei_trust', 'aei_anticipation', 'aei_shame', 'aei_love', 'aei_contempt', 
+        'aei_loneliness', 'aei_pride', 'aei_envy', 'aei_nostalgia', 'aei_gratitude',
+        'aei_frustration', 'aei_boredom'
+    ];
+    
+    foreach ($messageEmotionalColumns as $column) {
+        $checkColumnSQL = "SHOW COLUMNS FROM dialog_messages LIKE '$column'";
+        $result = $database->query($checkColumnSQL);
+        $columnExists = $result->rowCount() > 0;
+        
+        if (!$columnExists) {
+            echo "Adding column '$column' to dialog_messages...\n";
+            $addColumnSQL = "ALTER TABLE dialog_messages ADD COLUMN $column DECIMAL(3,2) NULL";
+            $database->query($addColumnSQL);
+            echo "✅ Column '$column' added successfully!\n";
+        } else {
+            echo "✅ Column '$column' already exists in dialog_messages.\n";
+        }
+    }
+    
     // 3. Check if retry_count column exists in dialog_jobs
     echo "\n--- Checking retry_count column ---\n";
     $retryColumnCheck = $database->query("SHOW COLUMNS FROM dialog_jobs LIKE 'retry_count'");

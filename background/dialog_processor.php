@@ -194,6 +194,38 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
                 );
                 
                 if ($emotionAnalysis['success']) {
+                    // Get current emotional state before adjustment
+                    $currentEmotions = $dialog->getEmotionalState($dialogId);
+                    
+                    // Store the current emotional state with the message
+                    if ($currentEmotions) {
+                        // Extract just the emotion values (remove aei_ prefix)
+                        $messageEmotions = [];
+                        foreach (Dialog::EMOTIONS as $emotion) {
+                            $messageEmotions[$emotion] = $currentEmotions["aei_$emotion"];
+                        }
+                        
+                        // Update the message with emotional state - we need to get the message ID first
+                        $lastMessage = $database->fetch(
+                            "SELECT id FROM dialog_messages WHERE dialog_id = ? AND turn_number = ? ORDER BY id DESC LIMIT 1",
+                            [$dialogId, $turnNumber]
+                        );
+                        
+                        if ($lastMessage) {
+                            // Build update SQL for emotional columns
+                            $emotionUpdates = [];
+                            $emotionParams = [];
+                            foreach (Dialog::EMOTIONS as $emotion) {
+                                $emotionUpdates[] = "aei_$emotion = ?";
+                                $emotionParams[] = $messageEmotions[$emotion];
+                            }
+                            $emotionParams[] = $lastMessage['id'];
+                            
+                            $updateSql = "UPDATE dialog_messages SET " . implode(', ', $emotionUpdates) . " WHERE id = ?";
+                            $database->query($updateSql, $emotionParams);
+                        }
+                    }
+                    
                     // Adjust emotional state by 30% of the analyzed values
                     $dialog->adjustEmotionalState($dialogId, $emotionAnalysis['emotions'], 0.3);
                     error_log("Dialog Processor: Updated emotional state for dialog $dialogId");

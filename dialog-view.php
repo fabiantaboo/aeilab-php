@@ -216,6 +216,77 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                                             </div>
                                             <p class="mt-2"><?php echo nl2br(htmlspecialchars($message['message'])); ?></p>
                                             
+                                            <!-- Emotional State Display for AEI messages -->
+                                            <?php if ($message['character_type'] === 'AEI'): ?>
+                                                <?php
+                                                // Check if any emotion data exists for this message
+                                                $hasEmotions = false;
+                                                $emotions = [
+                                                    'joy', 'sadness', 'fear', 'anger', 'surprise', 'disgust',
+                                                    'trust', 'anticipation', 'shame', 'love', 'contempt', 
+                                                    'loneliness', 'pride', 'envy', 'nostalgia', 'gratitude',
+                                                    'frustration', 'boredom'
+                                                ];
+                                                foreach ($emotions as $emotion) {
+                                                    if (isset($message["aei_$emotion"]) && $message["aei_$emotion"] !== null) {
+                                                        $hasEmotions = true;
+                                                        break;
+                                                    }
+                                                }
+                                                ?>
+                                                
+                                                <?php if ($hasEmotions): ?>
+                                                    <div class="mt-2">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-brain"></i> Emotional State:
+                                                            <button class="btn btn-sm btn-outline-secondary ms-1" 
+                                                                    onclick="toggleEmotions(<?php echo $message['id']; ?>)"
+                                                                    id="emotion-toggle-<?php echo $message['id']; ?>">
+                                                                Show Emotions
+                                                            </button>
+                                                        </small>
+                                                        
+                                                        <div id="emotions-<?php echo $message['id']; ?>" class="collapse mt-2">
+                                                            <div class="row g-2">
+                                                                <?php
+                                                                $emotionIcons = [
+                                                                    'joy' => '😊', 'sadness' => '😢', 'fear' => '😨', 'anger' => '😠',
+                                                                    'surprise' => '😲', 'disgust' => '🤢', 'trust' => '🤝', 'anticipation' => '🤔',
+                                                                    'shame' => '😳', 'love' => '❤️', 'contempt' => '😤', 'loneliness' => '😔',
+                                                                    'pride' => '😌', 'envy' => '😏', 'nostalgia' => '🥺', 'gratitude' => '🙏',
+                                                                    'frustration' => '😤', 'boredom' => '😴'
+                                                                ];
+                                                                ?>
+                                                                <?php foreach ($emotions as $emotion): ?>
+                                                                    <?php if (isset($message["aei_$emotion"]) && $message["aei_$emotion"] !== null): ?>
+                                                                        <?php
+                                                                        $value = floatval($message["aei_$emotion"]);
+                                                                        $percentage = $value * 100;
+                                                                        $intensityClass = '';
+                                                                        if ($value >= 0.7) $intensityClass = 'text-danger fw-bold';
+                                                                        elseif ($value >= 0.5) $intensityClass = 'text-warning';
+                                                                        else $intensityClass = 'text-muted';
+                                                                        ?>
+                                                                        <div class="col-6 col-md-4 col-lg-3">
+                                                                            <div class="small d-flex align-items-center">
+                                                                                <span class="me-1"><?php echo $emotionIcons[$emotion] ?? '🔘'; ?></span>
+                                                                                <span class="<?php echo $intensityClass; ?>">
+                                                                                    <?php echo ucfirst($emotion); ?>: <?php echo number_format($value, 1); ?>
+                                                                                </span>
+                                                                            </div>
+                                                                            <div class="progress" style="height: 4px;">
+                                                                                <div class="progress-bar bg-<?php echo $value >= 0.7 ? 'danger' : ($value >= 0.5 ? 'warning' : 'secondary'); ?>" 
+                                                                                     style="width: <?php echo $percentage; ?>%"></div>
+                                                                            </div>
+                                                                        </div>
+                                                                    <?php endif; ?>
+                                                                <?php endforeach; ?>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                            
                                             <!-- Message Details (hidden by default) -->
                                             <div id="message-details-<?php echo $message['id']; ?>" class="collapse mt-2">
                                                 <div class="card bg-light">
@@ -343,6 +414,20 @@ function showMessageDetails(messageId) {
         detailsDiv.classList.remove('show');
     } else {
         detailsDiv.classList.add('show');
+    }
+}
+
+function toggleEmotions(messageId) {
+    const emotionsDiv = document.getElementById('emotions-' + messageId);
+    const toggleButton = document.getElementById('emotion-toggle-' + messageId);
+    const isVisible = emotionsDiv.classList.contains('show');
+    
+    if (isVisible) {
+        emotionsDiv.classList.remove('show');
+        toggleButton.textContent = 'Show Emotions';
+    } else {
+        emotionsDiv.classList.add('show');
+        toggleButton.textContent = 'Hide Emotions';
     }
 }
 

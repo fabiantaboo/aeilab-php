@@ -164,6 +164,24 @@ class Setup {
                 message TEXT NOT NULL,
                 turn_number INT NOT NULL,
                 anthropic_request_json TEXT NULL,
+                aei_joy DECIMAL(3,2) NULL,
+                aei_sadness DECIMAL(3,2) NULL,
+                aei_fear DECIMAL(3,2) NULL,
+                aei_anger DECIMAL(3,2) NULL,
+                aei_surprise DECIMAL(3,2) NULL,
+                aei_disgust DECIMAL(3,2) NULL,
+                aei_trust DECIMAL(3,2) NULL,
+                aei_anticipation DECIMAL(3,2) NULL,
+                aei_shame DECIMAL(3,2) NULL,
+                aei_love DECIMAL(3,2) NULL,
+                aei_contempt DECIMAL(3,2) NULL,
+                aei_loneliness DECIMAL(3,2) NULL,
+                aei_pride DECIMAL(3,2) NULL,
+                aei_envy DECIMAL(3,2) NULL,
+                aei_nostalgia DECIMAL(3,2) NULL,
+                aei_gratitude DECIMAL(3,2) NULL,
+                aei_frustration DECIMAL(3,2) NULL,
+                aei_boredom DECIMAL(3,2) NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (dialog_id) REFERENCES dialogs(id) ON DELETE CASCADE,
                 FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
@@ -309,6 +327,29 @@ class Setup {
                 }
             } catch (Exception $e) {
                 error_log("Warning: Could not add $column column: " . $e->getMessage());
+            }
+        }
+        
+        // Add emotional state columns to existing dialog_messages table if they don't exist
+        $messageEmotionalColumns = [
+            'aei_joy', 'aei_sadness', 'aei_fear', 'aei_anger', 'aei_surprise', 'aei_disgust',
+            'aei_trust', 'aei_anticipation', 'aei_shame', 'aei_love', 'aei_contempt', 
+            'aei_loneliness', 'aei_pride', 'aei_envy', 'aei_nostalgia', 'aei_gratitude',
+            'aei_frustration', 'aei_boredom'
+        ];
+        
+        foreach ($messageEmotionalColumns as $column) {
+            try {
+                $checkColumnSQL = "SHOW COLUMNS FROM dialog_messages LIKE '$column'";
+                $stmt = $pdo->query($checkColumnSQL);
+                $columnExists = $stmt->rowCount() > 0;
+                
+                if (!$columnExists) {
+                    $addColumnSQL = "ALTER TABLE dialog_messages ADD COLUMN $column DECIMAL(3,2) NULL";
+                    $pdo->exec($addColumnSQL);
+                }
+            } catch (Exception $e) {
+                error_log("Warning: Could not add $column column to dialog_messages: " . $e->getMessage());
             }
         }
     }

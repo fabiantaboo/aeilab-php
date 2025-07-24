@@ -225,14 +225,25 @@ includeHeader('Chat with ' . $characterData['name'] . ' - AEI Lab');
 </style>
 
 <script>
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for jQuery to be available
+    if (typeof $ === 'undefined') {
+        setTimeout(function() {
+            initializeChat();
+        }, 100);
+    } else {
+        initializeChat();
+    }
+});
+
+function initializeChat() {
     // Scroll to bottom of chat
     scrollToBottom();
     
     // Focus on input
     $('#message-input').focus();
     
-    // Handle Enter key (without Ctrl = send, with Ctrl = new line)
+    // Handle Enter key (without Shift = send, with Shift = new line)
     $('#message-input').on('keydown', function(e) {
         if (e.keyCode === 13 && !e.shiftKey) {
             e.preventDefault();
@@ -245,7 +256,7 @@ $(document).ready(function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
     });
-});
+}
 
 function sendMessage() {
     const messageInput = $('#message-input');

@@ -65,7 +65,7 @@ try {
         $characterId,
         $userCharacterId,
         'Manual Chat Session',
-        ceil(count($chatHistory) / 2), // Number of turns (user-ai pairs)
+        count($chatHistory), // Each message is one turn
         'completed', // Set as completed immediately
         $_SESSION['user_id']
     ]);
@@ -78,13 +78,12 @@ try {
     }
     
     // Add messages to dialog with proper turn numbering
-    // Each user-ai pair should share the same turn number
-    $turnNumber = 1;
+    // Each message gets its own turn number
     foreach ($chatHistory as $index => $message) {
         $messageCharacterId = $message['sender'] === 'ai' ? $characterId : $userCharacterId;
         
-        // Calculate turn number: each pair of messages (user + ai) = 1 turn
-        $currentTurn = floor($index / 2) + 1;
+        // Turn number = index + 1 (each message is its own turn)
+        $currentTurn = $index + 1;
         
         $success = $dialog->addMessage(
             $dialogId,

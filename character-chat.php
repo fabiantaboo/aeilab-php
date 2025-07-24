@@ -81,21 +81,21 @@ includeHeader('Chat with ' . $characterData['name'] . ' - AEI Lab');
                 
                 <!-- Chat Input -->
                 <div class="chat-input border-top p-3">
-                    <form id="chat-form" class="d-flex gap-2">
+                    <div class="d-flex gap-2">
                         <input type="hidden" id="character-id" value="<?php echo $characterId; ?>">
                         <input type="hidden" id="chat-session-id" value="<?php echo $chatSessionId; ?>">
                         <div class="flex-grow-1">
-                            <textarea id="message-input" class="form-control" placeholder="Type your message here..." rows="2" required></textarea>
+                            <textarea id="message-input" class="form-control" placeholder="Type your message here..." rows="2"></textarea>
                         </div>
                         <div class="d-flex flex-column gap-1">
-                            <button type="submit" class="btn btn-primary" id="send-btn">
+                            <button type="button" class="btn btn-primary" id="send-btn" onclick="sendMessage()">
                                 <i class="fas fa-paper-plane"></i> Send
                             </button>
                             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="saveDialog()">
                                 <i class="fas fa-save"></i> Save
                             </button>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -232,15 +232,9 @@ $(document).ready(function() {
     // Focus on input
     $('#message-input').focus();
     
-    // Handle form submission
-    $('#chat-form').on('submit', function(e) {
-        e.preventDefault();
-        sendMessage();
-    });
-    
-    // Handle Ctrl+Enter
+    // Handle Enter key (without Ctrl = send, with Ctrl = new line)
     $('#message-input').on('keydown', function(e) {
-        if (e.ctrlKey && e.keyCode === 13) {
+        if (e.keyCode === 13 && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
@@ -282,6 +276,7 @@ function sendMessage() {
             csrf_token: $('meta[name="csrf-token"]').attr('content')
         },
         success: function(response) {
+            console.log('AJAX Response:', response);
             if (response.success) {
                 // Add AI response to chat
                 addMessageToChat('ai', response.response, '<?php echo addslashes($characterData['name']); ?>');
@@ -290,8 +285,9 @@ function sendMessage() {
                 showError(response.error || 'Failed to send message');
             }
         },
-        error: function() {
-            showError('Network error occurred');
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', xhr.responseText);
+            showError('Network error occurred: ' + error);
         },
         complete: function() {
             $('#send-btn').prop('disabled', false);

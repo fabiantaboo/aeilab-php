@@ -387,6 +387,109 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
             </div>
         </div>
         
+        <!-- Emotional Evolution Card -->
+        <?php
+        // Get AEI messages with emotional data for evolution display
+        $aeiMessagesWithEmotions = [];
+        foreach ($messages as $msg) {
+            if ($msg['character_type'] === 'AEI' && isset($msg['aei_joy']) && $msg['aei_joy'] !== null) {
+                $aeiMessagesWithEmotions[] = $msg;
+            }
+        }
+        ?>
+        
+        <?php if (!empty($aeiMessagesWithEmotions)): ?>
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="fas fa-brain"></i> Emotional Evolution</h6>
+            </div>
+            <div class="card-body">
+                <div class="small mb-2">
+                    AEI Character's emotional journey through the conversation:
+                </div>
+                
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <?php
+                    $emotionIcons = [
+                        'joy' => '😊', 'sadness' => '😢', 'fear' => '😨', 'anger' => '😠',
+                        'surprise' => '😲', 'disgust' => '🤢', 'trust' => '🤝', 'anticipation' => '🤔',
+                        'shame' => '😳', 'love' => '❤️', 'contempt' => '😤', 'loneliness' => '😔',
+                        'pride' => '😌', 'envy' => '😏', 'nostalgia' => '🥺', 'gratitude' => '🙏',
+                        'frustration' => '😤', 'boredom' => '😴'
+                    ];
+                    
+                    foreach ($aeiMessagesWithEmotions as $index => $msg):
+                        // Find the top 3 emotions for this message
+                        $msgEmotions = [];
+                        foreach (['joy', 'sadness', 'fear', 'anger', 'surprise', 'disgust', 'trust', 'anticipation', 'shame', 'love', 'contempt', 'loneliness', 'pride', 'envy', 'nostalgia', 'gratitude', 'frustration', 'boredom'] as $emotion) {
+                            if (isset($msg["aei_$emotion"]) && $msg["aei_$emotion"] !== null) {
+                                $msgEmotions[$emotion] = floatval($msg["aei_$emotion"]);
+                            }
+                        }
+                        arsort($msgEmotions);
+                        $topEmotions = array_slice($msgEmotions, 0, 3, true);
+                    ?>
+                    
+                    <div class="mb-2 p-2 border-start border-success border-3" style="background-color: #f8f9fa;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="fw-bold">Turn <?php echo $msg['turn_number']; ?></small>
+                            <small class="text-muted"><?php echo date('H:i', strtotime($msg['created_at'])); ?></small>
+                        </div>
+                        
+                        <div class="mt-1">
+                            <?php foreach ($topEmotions as $emotion => $value): ?>
+                                <?php
+                                $intensityClass = '';
+                                if ($value >= 0.7) $intensityClass = 'text-danger fw-bold';
+                                elseif ($value >= 0.5) $intensityClass = 'text-warning';
+                                else $intensityClass = 'text-muted';
+                                ?>
+                                <span class="me-2">
+                                    <span class="me-1"><?php echo $emotionIcons[$emotion] ?? '🔘'; ?></span>
+                                    <span class="<?php echo $intensityClass; ?>" style="font-size: 0.75rem;">
+                                        <?php echo ucfirst($emotion); ?> <?php echo number_format($value, 1); ?>
+                                    </span>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                        
+                        <?php if ($index > 0): ?>
+                            <?php
+                            // Show changes from previous message
+                            $prevMsg = $aeiMessagesWithEmotions[$index - 1];
+                            $changes = [];
+                            foreach ($topEmotions as $emotion => $value) {
+                                $prevValue = floatval($prevMsg["aei_$emotion"] ?? 0.5);
+                                $change = $value - $prevValue;
+                                if (abs($change) >= 0.1) {
+                                    $changeIcon = $change > 0 ? '↗️' : '↘️';
+                                    $changes[] = "$changeIcon " . ucfirst($emotion) . " " . sprintf("%+.1f", $change);
+                                }
+                            }
+                            ?>
+                            <?php if (!empty($changes)): ?>
+                                <div class="mt-1">
+                                    <small class="text-info">
+                                        Changes: <?php echo implode(', ', $changes); ?>
+                                    </small>
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <?php endforeach; ?>
+                </div>
+                
+                <div class="mt-2 pt-2 border-top">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        Showing top emotions per message with changes from previous turn
+                    </small>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+        
         <div class="card mt-3">
             <div class="card-header">
                 <h6><i class="fas fa-lightbulb"></i> Dialog Purpose</h6>

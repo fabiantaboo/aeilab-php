@@ -122,44 +122,20 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
             throw new Exception("API Error: " . $response['error']);
         }
         
-        // If this is an AEI turn, analyze emotions BEFORE saving the message
+        // For AEI messages, get current emotional state to store with the message
         $messageEmotions = null;
         $enableEmotionAnalysis = defined('ENABLE_EMOTION_ANALYSIS') ? ENABLE_EMOTION_ANALYSIS : false;
         
-        if ($enableEmotionAnalysis && $nextCharacterType === 'AEI') {
-            try {
-                error_log("Dialog Processor: Analyzing emotions for AEI turn $turnNumber in dialog $dialogId");
-                
-                // Add the new message to conversation history for analysis
-                $tempHistory = $conversationHistory;
-                $tempHistory[] = [
-                    'character_name' => $characterData['name'],
-                    'character_type' => $nextCharacterType,
-                    'message' => $response['message'],
-                    'turn_number' => $job['current_turn'] + 1
-                ];
-                
-                // Analyze emotional state
-                $emotionAnalysis = $anthropicAPI->analyzeEmotionalState(
-                    $tempHistory,
-                    $characterData['name'],
-                    $dialogData['topic']
-                );
-                
-                if ($emotionAnalysis['success']) {
-                    error_log("Dialog Processor: Emotion analysis successful for dialog $dialogId");
-                    $messageEmotions = $emotionAnalysis['emotions'];
-                    
-                    // Also adjust the dialog's emotional state by 30%
-                    $dialog->adjustEmotionalState($dialogId, $emotionAnalysis['emotions'], 0.3);
-                    error_log("Dialog Processor: Updated dialog emotional state for dialog $dialogId");
-                } else {
-                    error_log("Dialog Processor: Failed to analyze emotions for dialog $dialogId: " . ($emotionAnalysis['error'] ?? 'Unknown error'));
+        if ($nextCharacterType === 'AEI') {
+            // Get current emotional state from dialog (this represents the state BEFORE this message)
+            $currentEmotionalState = $dialog->getEmotionalState($dialogId);
+            if ($currentEmotionalState) {
+                // Extract emotions for message storage (remove aei_ prefix)
+                $messageEmotions = [];
+                foreach (Dialog::EMOTIONS as $emotion) {
+                    $messageEmotions[$emotion] = $currentEmotionalState["aei_$emotion"];
                 }
-                
-            } catch (Exception $e) {
-                error_log("Dialog Processor: Emotion analysis error for dialog $dialogId: " . $e->getMessage());
-                // Continue processing even if emotion analysis fails
+                error_log("Dialog Processor: Using current emotional state for AEI message in dialog $dialogId");
             }
         }
         
@@ -238,6 +214,63 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
             // Mark as pending for next turn
             $dialogJob->updateStatus($jobId, DialogJob::STATUS_PENDING);
             error_log("Dialog Processor: Job $jobId turn $turnNumber completed, next: $nextCharacterType");
+        }
+        
+        // AFTER saving the message, analyze emotions and update dialog state for next turn
+        if ($enableEmotionAnalysis && $nextCharacterType === 'AEI') {
+            try {
+                error_log("Dialog Processor: Analyzing emotions after AEI turn $turnNumber in dialog $dialogId for next turn");
+                
+                // Get updated conversation history including the new message
+                $updatedHistory = $dialog->getMessages($dialogId);
+                
+                // Analyze emotional state based on the complete conversation
+                $emotionAnalysis = $anthropicAPI->analyzeEmotionalState(
+                    $updatedHistory,
+                    $characterData['name'],
+                    $dialogData['topic']
+                );
+                
+                if ($emotionAnalysis['success']) {
+                    error_log("Dialog Processor: Emotion analysis successful for dialog $dialogId");
+                    
+                    // Get current emotional state
+                    $currentEmotionalState = $dialog->getEmotionalState($dialogId);
+                    if ($currentEmotionalState) {
+                        // Calculate new emotional state: 70% old + 30% new
+                        $newEmotionalState = [];
+                        foreach (Dialog::EMOTIONS as $emotion) {
+                            $oldValue = $currentEmotionalState["aei_$emotion"];
+                            $newValue = $emotionAnalysis['emotions'][$emotion] ?? 0.5;
+                            $blendedValue = ($oldValue * 0.7) + ($newValue * 0.3);
+                            $newEmotionalState[$emotion] = max(0, min(1, round($blendedValue, 1)));
+                        }
+                        
+                        // Update dialog's emotional state for next turn
+                        $dialog->updateEmotionalState($dialogId, $newEmotionalState);
+                        error_log("Dialog Processor: Updated dialog emotional state (70% old + 30% new) for dialog $dialogId");
+                        
+                        // Log the emotional changes for debugging
+                        $changes = [];
+                        foreach (Dialog::EMOTIONS as $emotion) {
+                            $oldVal = $currentEmotionalState["aei_$emotion"];
+                            $newVal = $newEmotionalState[$emotion];
+                            if (abs($oldVal - $newVal) >= 0.1) {
+                                $changes[] = "$emotion: $oldVal -> $newVal";
+                            }
+                        }
+                        if (!empty($changes)) {
+                            error_log("Dialog Processor: Significant emotional changes in dialog $dialogId: " . implode(', ', $changes));
+                        }
+                    }
+                } else {
+                    error_log("Dialog Processor: Failed to analyze emotions for dialog $dialogId: " . ($emotionAnalysis['error'] ?? 'Unknown error'));
+                }
+                
+            } catch (Exception $e) {
+                error_log("Dialog Processor: Emotion analysis error for dialog $dialogId: " . $e->getMessage());
+                // Continue processing even if emotion analysis fails
+            }
         }
         
     } catch (Exception $e) {

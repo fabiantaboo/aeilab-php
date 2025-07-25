@@ -28,7 +28,8 @@ try {
         "AEI",
         "Lisa",
         "Max",
-        "User"
+        "User",
+        null // No emotions for test
     );
     
     if ($response1['success']) {
@@ -57,7 +58,8 @@ try {
         "User",
         "Max",
         "Lisa",
-        "AEI"
+        "AEI",
+        null // No emotions for User characters
     );
     
     if ($response2['success']) {
@@ -92,7 +94,8 @@ try {
         "AEI",
         "Lisa",
         "Max",
-        "User"
+        "User",
+        null // No emotions for test
     );
     
     if ($response3['success']) {

@@ -65,7 +65,8 @@ try {
         "AEI",
         "Support Agent",
         "Customer",
-        "User"
+        "User",
+        null // No emotions for test
     );
     
     if ($dialogResponse['success']) {

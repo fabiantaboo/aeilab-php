@@ -106,6 +106,20 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
         $partnerCharacterId = ($nextCharacterType === 'AEI') ? $dialogData['user_character_id'] : $dialogData['aei_character_id'];
         $partnerCharacterData = $character->getById($partnerCharacterId);
         
+        // Get current emotional state for AEI characters
+        $currentEmotions = null;
+        if ($nextCharacterType === 'AEI') {
+            $currentEmotionalState = $dialog->getEmotionalState($dialogId);
+            if ($currentEmotionalState) {
+                // Extract emotions without aei_ prefix for API
+                $currentEmotions = [];
+                foreach (Dialog::EMOTIONS as $emotion) {
+                    $currentEmotions[$emotion] = $currentEmotionalState["aei_$emotion"];
+                }
+                error_log("Dialog Processor: Passing current emotional state to AEI for dialog $dialogId");
+            }
+        }
+        
         // Generate response using Anthropic API
         $formattedHistory = $anthropicAPI->formatConversationHistory($conversationHistory);
         $response = $anthropicAPI->generateDialogTurn(
@@ -115,7 +129,8 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
             $nextCharacterType,
             $characterData['name'],
             $partnerCharacterData ? $partnerCharacterData['name'] : null,
-            $partnerCharacterType
+            $partnerCharacterType,
+            $currentEmotions
         );
         
         if (!$response['success']) {
@@ -199,6 +214,9 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
         }
         
         // Continue with next turn processing FIRST, then do emotion analysis
+        // Remember who just spoke before updating nextCharacterType
+        $currentSpeaker = $nextCharacterType;
+        
         // Update job progress
         $nextCharacterType = $dialogJob->getNextCharacterType($nextCharacterType);
         $dialogJob->updateProgress($jobId, $turnNumber, $nextCharacterType);
@@ -216,8 +234,8 @@ function processDialogJob($job, $dialogJob, $dialog, $character, $anthropicAPI) 
             error_log("Dialog Processor: Job $jobId turn $turnNumber completed, next: $nextCharacterType");
         }
         
-        // AFTER saving the message, analyze emotions and update dialog state for next turn
-        if ($enableEmotionAnalysis && $nextCharacterType === 'AEI') {
+        // AFTER saving the message, analyze emotions if AEI just spoke
+        if ($enableEmotionAnalysis && $currentSpeaker === 'AEI') {
             try {
                 error_log("Dialog Processor: Analyzing emotions after AEI turn $turnNumber in dialog $dialogId for next turn");
                 

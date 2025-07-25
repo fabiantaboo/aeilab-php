@@ -69,9 +69,10 @@ class AnthropicAPI {
      * @param string $characterName
      * @param string $partnerName
      * @param string $partnerType
+     * @param array $currentEmotions - Current emotional state for AEI characters
      * @return array
      */
-    public function generateDialogTurn($characterSystemPrompt, $topic, $conversationHistory, $characterType, $characterName = null, $partnerName = null, $partnerType = null) {
+    public function generateDialogTurn($characterSystemPrompt, $topic, $conversationHistory, $characterType, $characterName = null, $partnerName = null, $partnerType = null, $currentEmotions = null) {
         // Build system prompt with context
         $systemPrompt = $characterSystemPrompt . "\n\n";
         $systemPrompt .= "You are participating in a dialog about: " . $topic . "\n";
@@ -86,6 +87,36 @@ class AnthropicAPI {
         // Add chat partner information
         if ($partnerName && $partnerType) {
             $systemPrompt .= "You are talking with " . $partnerName . " (" . $partnerType . " character).\n";
+        }
+        
+        // Add current emotional state for AEI characters
+        if ($characterType === 'AEI' && $currentEmotions && is_array($currentEmotions)) {
+            $systemPrompt .= "\nYour current emotional state:\n";
+            $activeEmotions = [];
+            $neutralEmotions = [];
+            $lowEmotions = [];
+            
+            foreach ($currentEmotions as $emotion => $value) {
+                if ($value >= 0.7) {
+                    $activeEmotions[] = "$emotion: " . number_format($value, 1);
+                } elseif ($value >= 0.4) {
+                    $neutralEmotions[] = "$emotion: " . number_format($value, 1);
+                } elseif ($value > 0) {
+                    $lowEmotions[] = "$emotion: " . number_format($value, 1);
+                }
+            }
+            
+            if (!empty($activeEmotions)) {
+                $systemPrompt .= "Strong emotions: " . implode(", ", $activeEmotions) . "\n";
+            }
+            if (!empty($neutralEmotions)) {
+                $systemPrompt .= "Moderate emotions: " . implode(", ", $neutralEmotions) . "\n";
+            }
+            if (!empty($lowEmotions)) {
+                $systemPrompt .= "Mild emotions: " . implode(", ", $lowEmotions) . "\n";
+            }
+            
+            $systemPrompt .= "Respond in a way that reflects your current emotional state naturally.\n";
         }
         
         $systemPrompt .= "Respond naturally and stay in character. Keep responses conversational and engaging.\n";

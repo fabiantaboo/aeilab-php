@@ -182,6 +182,8 @@ class Setup {
                 aei_gratitude DECIMAL(3,2) NULL,
                 aei_frustration DECIMAL(3,2) NULL,
                 aei_boredom DECIMAL(3,2) NULL,
+                rating_thumbs_up INT DEFAULT 0,
+                rating_thumbs_down INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (dialog_id) REFERENCES dialogs(id) ON DELETE CASCADE,
                 FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,

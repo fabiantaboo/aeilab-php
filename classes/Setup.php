@@ -193,6 +193,31 @@ class Setup {
         
         $pdo->exec($dialogMessagesTableSQL);
         
+        // Add rating columns to existing dialog_messages table if they don't exist
+        try {
+            // Check if rating columns already exist
+            $checkRatingUpSQL = "SHOW COLUMNS FROM dialog_messages LIKE 'rating_thumbs_up'";
+            $stmt = $pdo->query($checkRatingUpSQL);
+            $ratingUpExists = $stmt->rowCount() > 0;
+            
+            $checkRatingDownSQL = "SHOW COLUMNS FROM dialog_messages LIKE 'rating_thumbs_down'";
+            $stmt = $pdo->query($checkRatingDownSQL);
+            $ratingDownExists = $stmt->rowCount() > 0;
+            
+            if (!$ratingUpExists) {
+                $addRatingUpSQL = "ALTER TABLE dialog_messages ADD COLUMN rating_thumbs_up INT DEFAULT 0 AFTER aei_boredom";
+                $pdo->exec($addRatingUpSQL);
+            }
+            
+            if (!$ratingDownExists) {
+                $addRatingDownSQL = "ALTER TABLE dialog_messages ADD COLUMN rating_thumbs_down INT DEFAULT 0 AFTER rating_thumbs_up";
+                $pdo->exec($addRatingDownSQL);
+            }
+        } catch (Exception $e) {
+            // Columns might already exist or other error, continue
+            error_log("Warning: Could not add rating columns: " . $e->getMessage());
+        }
+        
         // Add anthropic_request_json column to existing dialog_messages table if it doesn't exist
         try {
             // Check if column already exists

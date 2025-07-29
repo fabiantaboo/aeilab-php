@@ -23,6 +23,9 @@ $statuses = $dialog->getStatuses();
 // Get job status
 $jobStatus = $dialogJob->getByDialogId($dialogId);
 
+// Get rating statistics
+$ratingStats = $dialog->getRatingStats($dialogId);
+
 includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
 ?>
 
@@ -195,6 +198,24 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                                                     <small class="text-muted ms-2"><?php echo date('H:i:s', strtotime($message['created_at'])); ?></small>
                                                 </div>
                                                 <div class="btn-group btn-group-sm">
+                                                    <!-- Rating buttons -->
+                                                    <button class="btn btn-outline-success btn-sm rating-btn" 
+                                                            data-message-id="<?php echo $message['id']; ?>" 
+                                                            data-rating-type="up"
+                                                            title="Thumbs up"
+                                                            <?php if (intval($message['rating_thumbs_up'] ?? 0) > 0): ?>style="background-color: #198754; color: white;"<?php endif; ?>>
+                                                        <i class="fas fa-thumbs-up"></i>
+                                                        <span class="rating-count-up"><?php echo intval($message['rating_thumbs_up'] ?? 0) ?: ''; ?></span>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger btn-sm rating-btn" 
+                                                            data-message-id="<?php echo $message['id']; ?>" 
+                                                            data-rating-type="down"
+                                                            title="Thumbs down"
+                                                            <?php if (intval($message['rating_thumbs_down'] ?? 0) > 0): ?>style="background-color: #dc3545; color: white;"<?php endif; ?>>
+                                                        <i class="fas fa-thumbs-down"></i>
+                                                        <span class="rating-count-down"><?php echo intval($message['rating_thumbs_down'] ?? 0) ?: ''; ?></span>
+                                                    </button>
+                                                    
                                                     <?php if ($message['anthropic_request_json']): ?>
                                                         <a href="download_anthropic_request.php?message_id=<?php echo $message['id']; ?>" 
                                                            class="btn btn-outline-primary btn-sm" 
@@ -351,6 +372,18 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                     <tr>
                         <td><strong>Messages:</strong></td>
                         <td><?php echo count($messages); ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Rated Messages:</strong></td>
+                        <td><?php echo $ratingStats['rated_messages']; ?> / <?php echo $ratingStats['total_messages']; ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>👍 Thumbs Up:</strong></td>
+                        <td><span class="badge bg-success"><?php echo $ratingStats['total_thumbs_up']; ?></span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>👎 Thumbs Down:</strong></td>
+                        <td><span class="badge bg-danger"><?php echo $ratingStats['total_thumbs_down']; ?></span></td>
                     </tr>
                 </table>
             </div>
@@ -533,6 +566,85 @@ function toggleEmotions(messageId) {
         toggleButton.textContent = 'Hide Emotions';
     }
 }
+
+// Rating functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const ratingButtons = document.querySelectorAll('.rating-btn');
+    
+    ratingButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const messageId = this.getAttribute('data-message-id');
+            const ratingType = this.getAttribute('data-rating-type');
+            
+            // Disable button during request
+            this.disabled = true;
+            
+            // Send AJAX request
+            fetch('rate_message.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message_id: parseInt(messageId),
+                    rating_type: ratingType
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update both buttons for this message
+                    const messageContainer = this.closest('.btn-group');
+                    const upButton = messageContainer.querySelector('[data-rating-type="up"]');
+                    const downButton = messageContainer.querySelector('[data-rating-type="down"]');
+                    const upCountSpan = upButton.querySelector('.rating-count-up');
+                    const downCountSpan = downButton.querySelector('.rating-count-down');
+                    
+                    // Update counts
+                    upCountSpan.textContent = data.thumbs_up > 0 ? data.thumbs_up : '';
+                    downCountSpan.textContent = data.thumbs_down > 0 ? data.thumbs_down : '';
+                    
+                    // Update button styles
+                    if (data.thumbs_up > 0) {
+                        upButton.style.backgroundColor = '#198754';
+                        upButton.style.color = 'white';
+                        upButton.style.borderColor = '#198754';
+                    } else {
+                        upButton.style.backgroundColor = '';
+                        upButton.style.color = '';
+                        upButton.style.borderColor = '';
+                    }
+                    
+                    if (data.thumbs_down > 0) {
+                        downButton.style.backgroundColor = '#dc3545';
+                        downButton.style.color = 'white';
+                        downButton.style.borderColor = '#dc3545';
+                    } else {
+                        downButton.style.backgroundColor = '';
+                        downButton.style.color = '';
+                        downButton.style.borderColor = '';
+                    }
+                    
+                    // Update statistics in sidebar (reload page to get updated stats)
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                    
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to rate message'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Network error occurred while rating message');
+            })
+            .finally(() => {
+                // Re-enable button
+                this.disabled = false;
+            });
+        });
+    });
+});
 
 // Auto-refresh dialog status every 30 seconds
 setInterval(function() {

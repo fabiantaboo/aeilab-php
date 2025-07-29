@@ -250,6 +250,77 @@ class Dialog {
     }
     
     /**
+     * Rate a message with thumbs up or down
+     * @param int $messageId
+     * @param string $ratingType - 'up' or 'down'
+     * @return bool
+     */
+    public function rateMessage($messageId, $ratingType) {
+        if (!in_array($ratingType, ['up', 'down'])) {
+            return false;
+        }
+        
+        $column = $ratingType === 'up' ? 'rating_thumbs_up' : 'rating_thumbs_down';
+        $otherColumn = $ratingType === 'up' ? 'rating_thumbs_down' : 'rating_thumbs_up';
+        
+        try {
+            // Get current rating values
+            $sql = "SELECT $column, $otherColumn FROM dialog_messages WHERE id = ?";
+            $current = $this->db->fetch($sql, [$messageId]);
+            
+            if (!$current) {
+                return false;
+            }
+            
+            $currentValue = intval($current[$column]);
+            $otherValue = intval($current[$otherColumn]);
+            
+            // Toggle the rating - if already rated, remove it; otherwise add it
+            if ($currentValue > 0) {
+                // Already rated with this type, remove the rating
+                $newValue = 0;
+            } else {
+                // Not rated with this type, add rating and remove opposite rating
+                $newValue = 1;
+                $otherValue = 0;
+            }
+            
+            // Update both columns
+            $updateSql = "UPDATE dialog_messages SET $column = ?, $otherColumn = ? WHERE id = ?";
+            $this->db->query($updateSql, [$newValue, $otherValue, $messageId]);
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("Message rating failed: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get rating statistics for a dialog
+     * @param int $dialogId
+     * @return array
+     */
+    public function getRatingStats($dialogId) {
+        $sql = "SELECT 
+                    SUM(rating_thumbs_up) as total_thumbs_up,
+                    SUM(rating_thumbs_down) as total_thumbs_down,
+                    COUNT(*) as total_messages,
+                    SUM(CASE WHEN rating_thumbs_up > 0 OR rating_thumbs_down > 0 THEN 1 ELSE 0 END) as rated_messages
+                FROM dialog_messages 
+                WHERE dialog_id = ?";
+        
+        $result = $this->db->fetch($sql, [$dialogId]);
+        
+        return [
+            'total_thumbs_up' => intval($result['total_thumbs_up'] ?? 0),
+            'total_thumbs_down' => intval($result['total_thumbs_down'] ?? 0),
+            'total_messages' => intval($result['total_messages'] ?? 0),
+            'rated_messages' => intval($result['rated_messages'] ?? 0)
+        ];
+    }
+    
+    /**
      * Get dialog statistics
      * @return array
      */

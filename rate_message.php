@@ -1,24 +1,32 @@
 <?php
-require_once 'includes/bootstrap.php';
+// Disable error display to prevent HTML errors in JSON response
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
 
-// Require authentication
-requireAuth();
-
-// Ensure global variables are available
-global $db, $dialog, $user;
-
-// Only accept POST requests
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
-    exit;
-}
-
-// Set JSON response header
+// Set JSON response header early
 header('Content-Type: application/json');
 
 try {
+    require_once 'includes/bootstrap.php';
+    
+    // Require authentication
+    requireAuth();
+
+    // Ensure global variables are available
+    global $db, $dialog, $user;
+    
+    // Verify variables exist
+    if (!$db || !$dialog || !$user) {
+        throw new Exception('System variables not available');
+    }
+
+    // Only accept POST requests
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'error' => 'Method not allowed']);
+        exit;
+    }
+    
     // Get input data
     $input = json_decode(file_get_contents('php://input'), true);
     
@@ -37,6 +45,9 @@ try {
         throw new Exception('Invalid rating type');
     }
     
+    // Ensure rating columns exist
+    $dialog->ensureRatingColumns();
+    
     // Verify that the message exists and get its dialog_id
     $messageData = $db->fetch("SELECT dm.id, dm.dialog_id FROM dialog_messages dm WHERE dm.id = ?", [$messageId]);
     
@@ -50,9 +61,6 @@ try {
     if (!$dialogData || (!$user->isAdmin() && $dialogData['created_by'] != $_SESSION['user_id'])) {
         throw new Exception('Access denied');
     }
-    
-    // Ensure rating columns exist
-    $dialog->ensureRatingColumns();
     
     // Rate the message
     $success = $dialog->rateMessage($messageId, $ratingType);
@@ -76,12 +84,14 @@ try {
     error_log("Rating error: " . $e->getMessage() . " | File: " . $e->getFile() . " | Line: " . $e->getLine());
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
-        'debug' => [
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString()
-        ]
+        'error' => $e->getMessage()
+    ]);
+} catch (Error $e) {
+    http_response_code(500);
+    error_log("Rating fatal error: " . $e->getMessage() . " | File: " . $e->getFile() . " | Line: " . $e->getLine());
+    echo json_encode([
+        'success' => false,
+        'error' => 'Internal server error'
     ]);
 }
 ?>

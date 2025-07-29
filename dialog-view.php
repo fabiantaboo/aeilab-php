@@ -26,6 +26,23 @@ $jobStatus = $dialogJob->getByDialogId($dialogId);
 // Get rating statistics
 $ratingStats = $dialog->getRatingStats($dialogId);
 
+// Check if rating columns exist, and add them if they don't
+$checkRatingColumns = $db->query("SHOW COLUMNS FROM dialog_messages LIKE 'rating_%'");
+$hasRatingColumns = $checkRatingColumns->rowCount() > 0;
+
+if (!$hasRatingColumns) {
+    try {
+        // Add the rating columns automatically
+        $db->query("ALTER TABLE dialog_messages ADD COLUMN rating_thumbs_up INT DEFAULT 0");
+        $db->query("ALTER TABLE dialog_messages ADD COLUMN rating_thumbs_down INT DEFAULT 0");
+        $hasRatingColumns = true;
+        error_log("Rating columns added automatically to dialog_messages table");
+    } catch (Exception $e) {
+        error_log("Could not add rating columns automatically: " . $e->getMessage());
+        $hasRatingColumns = false;
+    }
+}
+
 includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
 ?>
 
@@ -198,23 +215,25 @@ includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
                                                     <small class="text-muted ms-2"><?php echo date('H:i:s', strtotime($message['created_at'])); ?></small>
                                                 </div>
                                                 <div class="btn-group btn-group-sm">
-                                                    <!-- Rating buttons -->
-                                                    <button class="btn btn-outline-success btn-sm rating-btn" 
-                                                            data-message-id="<?php echo $message['id']; ?>" 
-                                                            data-rating-type="up"
-                                                            title="Thumbs up"
-                                                            <?php if (intval($message['rating_thumbs_up'] ?? 0) > 0): ?>style="background-color: #198754; color: white;"<?php endif; ?>>
-                                                        <i class="fas fa-thumbs-up"></i>
-                                                        <span class="rating-count-up"><?php echo intval($message['rating_thumbs_up'] ?? 0) ?: ''; ?></span>
-                                                    </button>
-                                                    <button class="btn btn-outline-danger btn-sm rating-btn" 
-                                                            data-message-id="<?php echo $message['id']; ?>" 
-                                                            data-rating-type="down"
-                                                            title="Thumbs down"
-                                                            <?php if (intval($message['rating_thumbs_down'] ?? 0) > 0): ?>style="background-color: #dc3545; color: white;"<?php endif; ?>>
-                                                        <i class="fas fa-thumbs-down"></i>
-                                                        <span class="rating-count-down"><?php echo intval($message['rating_thumbs_down'] ?? 0) ?: ''; ?></span>
-                                                    </button>
+                                                    <?php if ($hasRatingColumns): ?>
+                                                        <!-- Rating buttons -->
+                                                        <button class="btn btn-outline-success btn-sm rating-btn" 
+                                                                data-message-id="<?php echo $message['id']; ?>" 
+                                                                data-rating-type="up"
+                                                                title="Thumbs up"
+                                                                <?php if (intval($message['rating_thumbs_up'] ?? 0) > 0): ?>style="background-color: #198754; color: white;"<?php endif; ?>>
+                                                            <i class="fas fa-thumbs-up"></i>
+                                                            <span class="rating-count-up"><?php echo intval($message['rating_thumbs_up'] ?? 0) ?: ''; ?></span>
+                                                        </button>
+                                                        <button class="btn btn-outline-danger btn-sm rating-btn" 
+                                                                data-message-id="<?php echo $message['id']; ?>" 
+                                                                data-rating-type="down"
+                                                                title="Thumbs down"
+                                                                <?php if (intval($message['rating_thumbs_down'] ?? 0) > 0): ?>style="background-color: #dc3545; color: white;"<?php endif; ?>>
+                                                            <i class="fas fa-thumbs-down"></i>
+                                                            <span class="rating-count-down"><?php echo intval($message['rating_thumbs_down'] ?? 0) ?: ''; ?></span>
+                                                        </button>
+                                                    <?php endif; ?>
                                                     
                                                     <?php if ($message['anthropic_request_json']): ?>
                                                         <a href="download_anthropic_request.php?message_id=<?php echo $message['id']; ?>" 

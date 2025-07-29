@@ -302,22 +302,48 @@ class Dialog {
      * @return array
      */
     public function getRatingStats($dialogId) {
-        $sql = "SELECT 
-                    SUM(rating_thumbs_up) as total_thumbs_up,
-                    SUM(rating_thumbs_down) as total_thumbs_down,
-                    COUNT(*) as total_messages,
-                    SUM(CASE WHEN rating_thumbs_up > 0 OR rating_thumbs_down > 0 THEN 1 ELSE 0 END) as rated_messages
-                FROM dialog_messages 
-                WHERE dialog_id = ?";
-        
-        $result = $this->db->fetch($sql, [$dialogId]);
-        
-        return [
-            'total_thumbs_up' => intval($result['total_thumbs_up'] ?? 0),
-            'total_thumbs_down' => intval($result['total_thumbs_down'] ?? 0),
-            'total_messages' => intval($result['total_messages'] ?? 0),
-            'rated_messages' => intval($result['rated_messages'] ?? 0)
-        ];
+        try {
+            // First check if rating columns exist
+            $checkColumns = $this->db->query("SHOW COLUMNS FROM dialog_messages LIKE 'rating_%'");
+            $ratingColumns = $checkColumns->fetchAll();
+            
+            if (count($ratingColumns) == 0) {
+                // Rating columns don't exist yet, return default values
+                $countResult = $this->db->fetch("SELECT COUNT(*) as total_messages FROM dialog_messages WHERE dialog_id = ?", [$dialogId]);
+                return [
+                    'total_thumbs_up' => 0,
+                    'total_thumbs_down' => 0,
+                    'total_messages' => intval($countResult['total_messages'] ?? 0),
+                    'rated_messages' => 0
+                ];
+            }
+            
+            $sql = "SELECT 
+                        SUM(rating_thumbs_up) as total_thumbs_up,
+                        SUM(rating_thumbs_down) as total_thumbs_down,
+                        COUNT(*) as total_messages,
+                        SUM(CASE WHEN rating_thumbs_up > 0 OR rating_thumbs_down > 0 THEN 1 ELSE 0 END) as rated_messages
+                    FROM dialog_messages 
+                    WHERE dialog_id = ?";
+            
+            $result = $this->db->fetch($sql, [$dialogId]);
+            
+            return [
+                'total_thumbs_up' => intval($result['total_thumbs_up'] ?? 0),
+                'total_thumbs_down' => intval($result['total_thumbs_down'] ?? 0),
+                'total_messages' => intval($result['total_messages'] ?? 0),
+                'rated_messages' => intval($result['rated_messages'] ?? 0)
+            ];
+        } catch (Exception $e) {
+            // Fallback if there's any error
+            $countResult = $this->db->fetch("SELECT COUNT(*) as total_messages FROM dialog_messages WHERE dialog_id = ?", [$dialogId]);
+            return [
+                'total_thumbs_up' => 0,
+                'total_thumbs_down' => 0,
+                'total_messages' => intval($countResult['total_messages'] ?? 0),
+                'rated_messages' => 0
+            ];
+        }
     }
     
     /**

@@ -4,6 +4,9 @@ require_once 'includes/bootstrap.php';
 // Require authentication
 requireAuth();
 
+// Ensure global variables are available
+global $db, $dialog, $user;
+
 // Only accept POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -48,6 +51,9 @@ try {
         throw new Exception('Access denied');
     }
     
+    // Ensure rating columns exist
+    $dialog->ensureRatingColumns();
+    
     // Rate the message
     $success = $dialog->rateMessage($messageId, $ratingType);
     
@@ -67,9 +73,15 @@ try {
     
 } catch (Exception $e) {
     http_response_code(400);
+    error_log("Rating error: " . $e->getMessage() . " | File: " . $e->getFile() . " | Line: " . $e->getLine());
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'debug' => [
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ]
     ]);
 }
 ?>

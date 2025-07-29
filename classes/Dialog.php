@@ -297,6 +297,43 @@ class Dialog {
     }
     
     /**
+     * Ensure rating columns exist in dialog_messages table
+     * @return bool
+     */
+    public function ensureRatingColumns() {
+        try {
+            // Check if rating columns exist
+            $checkColumns = $this->db->query("SHOW COLUMNS FROM dialog_messages LIKE 'rating_%'");
+            $ratingColumns = $checkColumns->fetchAll();
+            
+            if (count($ratingColumns) == 0) {
+                // Add the rating columns
+                $this->db->query("ALTER TABLE dialog_messages ADD COLUMN rating_thumbs_up INT DEFAULT 0");
+                $this->db->query("ALTER TABLE dialog_messages ADD COLUMN rating_thumbs_down INT DEFAULT 0");
+                error_log("Rating columns added automatically to dialog_messages table");
+                return true;
+            }
+            return true;
+        } catch (Exception $e) {
+            error_log("Could not add rating columns automatically: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Check if rating columns exist
+     * @return bool
+     */
+    public function hasRatingColumns() {
+        try {
+            $checkColumns = $this->db->query("SHOW COLUMNS FROM dialog_messages LIKE 'rating_%'");
+            return $checkColumns->rowCount() > 0;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
      * Get rating statistics for a dialog
      * @param int $dialogId
      * @return array

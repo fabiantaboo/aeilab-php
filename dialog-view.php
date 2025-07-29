@@ -23,26 +23,12 @@ $statuses = $dialog->getStatuses();
 // Get job status
 $jobStatus = $dialogJob->getByDialogId($dialogId);
 
+// Ensure rating columns exist and add them if they don't
+$dialog->ensureRatingColumns();
+$hasRatingColumns = $dialog->hasRatingColumns();
+
 // Get rating statistics
 $ratingStats = $dialog->getRatingStats($dialogId);
-
-// Check if rating columns exist, and add them if they don't
-global $db;
-$checkRatingColumns = $db->query("SHOW COLUMNS FROM dialog_messages LIKE 'rating_%'");
-$hasRatingColumns = $checkRatingColumns->rowCount() > 0;
-
-if (!$hasRatingColumns) {
-    try {
-        // Add the rating columns automatically
-        $db->query("ALTER TABLE dialog_messages ADD COLUMN rating_thumbs_up INT DEFAULT 0");
-        $db->query("ALTER TABLE dialog_messages ADD COLUMN rating_thumbs_down INT DEFAULT 0");
-        $hasRatingColumns = true;
-        error_log("Rating columns added automatically to dialog_messages table");
-    } catch (Exception $e) {
-        error_log("Could not add rating columns automatically: " . $e->getMessage());
-        $hasRatingColumns = false;
-    }
-}
 
 includeHeader('Dialog: ' . $dialogData['name'] . ' - AEI Lab');
 ?>

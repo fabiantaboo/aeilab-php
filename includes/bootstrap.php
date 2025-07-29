@@ -32,6 +32,7 @@ if (!$setup->isDatabaseInitialized()) {
 
 // Initialize database connection
 $database = new Database();
+$db = $database; // Alias for backwards compatibility
 
 // Initialize user authentication
 $user = new User($database);

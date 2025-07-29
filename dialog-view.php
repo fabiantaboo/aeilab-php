@@ -27,6 +27,7 @@ $jobStatus = $dialogJob->getByDialogId($dialogId);
 $ratingStats = $dialog->getRatingStats($dialogId);
 
 // Check if rating columns exist, and add them if they don't
+global $db;
 $checkRatingColumns = $db->query("SHOW COLUMNS FROM dialog_messages LIKE 'rating_%'");
 $hasRatingColumns = $checkRatingColumns->rowCount() > 0;
 
